@@ -33,8 +33,8 @@
   --color-border: var(--border);
   --color-muted: var(--muted);
 
-  --font-heading: var(--font-heading);
-  --font-sans: var(--font-body);
+  --font-heading: var(--font-cormorant-upright);
+  --font-sans: var(--font-plus-jakarta-sans);
 }
 
 * {
@@ -52,14 +52,18 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--text);
-  font-family: var(--font-body), sans-serif;
+  font-family: var(--font-plus-jakarta-sans), system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue",
+    sans-serif;
 }
 
 h1,
 h2,
 h3,
-h4 {
-  font-family: var(--font-heading), serif;
+h4,
+h5,
+h6 {
+  font-family: var(--font-cormorant-upright), Georgia, serif;
   font-weight: 600;
 }
 
