@@ -1,0 +1,1 @@
+import { SimulationView } from "@/components/simulation-view";export default function SimulasiPage(){return <SimulationView/>}
