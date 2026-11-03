@@ -46,12 +46,12 @@ Pengguna membuka situs
 | --------------- | -------------------------------------------------------------- |
 | Framework       | Next.js (App Router)                                           |
 | Bahasa          | TypeScript                                                     |
-| Basis data      | Supabase (PostgreSQL), dengan Row Level Security (baca publik) |
+| Basis data      | Supabase (PostgreSQL)                                          |
 | Antarmuka       | Tailwind CSS, shadcn/ui (rencana)                              |
-| Grafik          | Recharts (rencana)                                             |
-| Pengolahan data | Python (`openpyxl` atau `pandas`) (rencana)                    |
-| Hosting         | Vercel (rencana)                                               |
-| Sumber data     | DJPK Kemenkeu, BPS (rencana)                                   |
+| Grafik          | Recharts                                                       |
+| Pengolahan data | Python (`openpyxl` atau `pandas`)                              |
+| Hosting         | Vercel                                                         |
+| Sumber data     | DJPK Kemenkeu, BPS                                             |
 
 Sesuaikan tabel ini dengan isi `package.json` bila ada perbedaan.
 
@@ -68,8 +68,8 @@ Sesuaikan tabel ini dengan isi `package.json` bila ada perbedaan.
 1. Clone repositori dan masuk ke folder aplikasi.
 
    ```bash
-   git clone <url-repositori>
-   cd <nama-repositori>/frontend
+   git clone https://github.com/arimbiws/selaras.git
+   cd frontend
    ```
 
 2. Pasang dependensi.
@@ -80,7 +80,7 @@ Sesuaikan tabel ini dengan isi `package.json` bila ada perbedaan.
 
 3. Siapkan basis data. Buka SQL Editor di Supabase, lalu jalankan isi `schema.sql`.
 
-4. Isi data DJPK ke basis data memakai skrip di folder `etl/` (menggunakan `service_role` key dari proyek Supabase kamu).
+4. Isi data DJPK ke basis data memakai skrip di folder `etl/` (menggunakan `service_role` key dari proyek Supabase).
 
 5. Buat berkas `.env.local` di folder `frontend/`.
 
