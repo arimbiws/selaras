@@ -87,7 +87,8 @@ export function SimulationView() {
             <h1>Simulasi Alokasi</h1>
             <p className="page-sub">
               Ubah porsi jenis belanja dan lihat dampaknya terhadap nominal alokasi serta belanja
-              per penduduk.
+              per penduduk. Nilai awal memakai contoh Kabupaten Pacitan dan dapat diganti untuk
+              daerah mana pun.
             </p>
           </div>
           <div className="page-actions">
@@ -234,6 +235,7 @@ export function SimulationView() {
                         paddingAngle={2}
                         stroke="#fff"
                         strokeWidth={2}
+                        animationDuration={700}
                       >
                         {slices.map((slice) => (
                           <Cell key={slice.name} fill={slice.color} />
@@ -316,7 +318,8 @@ export function SimulationView() {
 
         <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink2)" }}>
           Simulasi ini menggunakan asumsi porsi jenis belanja dan bukan proyeksi resmi. Belanja per
-          penduduk dihitung dari total anggaran dibagi jumlah penduduk yang diisi.
+          penduduk dihitung dari total anggaran dibagi jumlah penduduk yang diisi. Angka awal merupakan
+          contoh Kabupaten Pacitan; masukkan nilai daerah lain untuk skenario berbeda.
         </p>
       </main>
     </PageShell>

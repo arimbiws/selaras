@@ -28,6 +28,7 @@ import {
   BIDANG_SHORT,
   BIDANG_TOTALS,
   CHART_COLORS,
+  COVERAGE,
   JENIS,
   JENIS_MEDIAN_JT,
   JENIS_MEDIAN_NAS,
@@ -65,7 +66,7 @@ function RadarTip({
   return (
     <div className="tip">
       <b>{point.full}</b>
-      <span>Kab. Pacitan: persentil {Math.round(point.value)}</span>
+      <span>Daerah contoh: persentil {Math.round(point.value)}</span>
       <span>Nilai tengah: persentil 50</span>
     </div>
   );
@@ -95,15 +96,16 @@ const sources = [
     status: "Dimuat",
     ok: true,
     detail:
-      "DJPK Kementerian Keuangan. APBD 2023, per 12 Mei 2023, 546 pemerintah daerah.",
+      "DJPK Kementerian Keuangan. APBD 2020–2022 dan pagu 2025; 125.757 baris tervalidasi untuk 572 kode daerah.",
     url: "https://djpk.kemenkeu.go.id/?p=5412",
     cta: "Lihat dataset asli",
   },
   {
     name: "Realisasi belanja per fungsi",
-    status: "Belum dimuat",
+    status: "Sebagian",
     ok: false,
-    detail: "DJPK Kementerian Keuangan. Berkas terpisah untuk setiap tahun, tersedia hingga 2024.",
+    detail:
+      "DJPK Kementerian Keuangan. Realisasi 2020–2022 tersedia di dataset, belum disajikan pada prototipe ini.",
     url: "https://djpk.kemenkeu.go.id/?p=5412",
     cta: "Lihat dataset asli",
   },
@@ -160,7 +162,7 @@ export default function AnalisisPage() {
 
   const insights = gaps.map(
     (gap) =>
-      `${gap.name}: ${fmt1(shares[gap.index])}% dari total belanja, ${signed(gap.delta)} terhadap nilai tengah (${fmt1(medians[gap.index])}%), peringkat ke-${ranks[gap.index]} dari 415 kabupaten.`,
+      `${gap.name}: ${fmt1(shares[gap.index])}% dari total belanja, ${signed(gap.delta)} terhadap nilai tengah (${fmt1(medians[gap.index])}%), peringkat ke-${ranks[gap.index]} dari ${COVERAGE.kabupaten} kabupaten.`,
   );
 
   const questions = gaps.map((gap, index) => ({
@@ -208,8 +210,9 @@ export default function AnalisisPage() {
           <div style={{ maxWidth: 700 }}>
             <h1>Analisis Kebutuhan</h1>
             <p className="page-sub">
-              Porsi anggaran Kabupaten Pacitan dibandingkan dengan kabupaten lain, sebagai dasar
-              untuk menilai apakah alokasi sejalan dengan kebutuhan wilayah.
+              Porsi anggaran daerah contoh (Kabupaten Pacitan) dibandingkan dengan kabupaten lain di
+              seluruh Indonesia, sebagai dasar untuk menilai apakah alokasi sejalan dengan kebutuhan
+              wilayah.
             </p>
           </div>
 
@@ -222,7 +225,7 @@ export default function AnalisisPage() {
                   aria-pressed={comparison === "nas"}
                   onClick={() => setComparison("nas")}
                 >
-                  Seluruh kabupaten (415)
+                  Seluruh kabupaten ({COVERAGE.kabupaten})
                 </button>
                 <button
                   type="button"
@@ -305,7 +308,7 @@ export default function AnalisisPage() {
               </div>
               <div className="kpi-v">{highCount}</div>
             </div>
-            <div className="kpi-f">peringkat 1 sampai 103 dari 415</div>
+            <div className="kpi-f">peringkat 1 sampai 103 dari {COVERAGE.kabupaten}</div>
           </article>
 
           <article className="kpi">
@@ -331,7 +334,7 @@ export default function AnalisisPage() {
               </div>
               <div className="kpi-v">{lowCount}</div>
             </div>
-            <div className="kpi-f">peringkat 312 sampai 415</div>
+            <div className="kpi-f">peringkat 312 sampai {COVERAGE.kabupaten}</div>
           </article>
 
           <article className="kpi dash">
@@ -359,14 +362,14 @@ export default function AnalisisPage() {
                 </h2>
                 <span className="pn-s">
                   {comparison === "nas"
-                    ? "Pembanding: nilai tengah 415 kabupaten di seluruh Indonesia."
-                    : "Pembanding: nilai tengah 29 kabupaten di Jawa Timur. Status tetap ditentukan dari peringkat di antara 415 kabupaten."}
+                    ? `Pembanding: nilai tengah ${COVERAGE.kabupaten} kabupaten di seluruh Indonesia.`
+                    : `Pembanding: nilai tengah 29 kabupaten di Jawa Timur. Status tetap ditentukan dari peringkat di antara ${COVERAGE.kabupaten} kabupaten.`}
                 </span>
               </div>
               <div className="legend">
                 <span>
                   <i style={{ width: 22, height: 10, borderRadius: 5, background: "var(--brand)" }} />
-                  Kab. Pacitan
+                  Daerah contoh
                 </span>
                 <span>
                   <i style={{ width: 4, height: 16, borderRadius: 2, background: "var(--ink)" }} />
@@ -400,7 +403,7 @@ export default function AnalisisPage() {
                   >
                     <span className={`chip ${row.status.cls}`}>{row.status.label}</span>
                     <span style={{ fontSize: 12, color: "var(--ink2)" }}>
-                      peringkat {row.rank} dari 415
+                      peringkat {row.rank} dari {COVERAGE.kabupaten}
                     </span>
                   </div>
                 </div>
@@ -412,7 +415,9 @@ export default function AnalisisPage() {
             <div className="pn-h">
               <div>
                 <h2 className="pn-t">Posisi Relatif</h2>
-                <span className="pn-s">Persentil porsi di antara 415 kabupaten</span>
+                <span className="pn-s">
+                  Persentil porsi di antara {COVERAGE.kabupaten} kabupaten
+                </span>
               </div>
             </div>
             <div
@@ -436,14 +441,16 @@ export default function AnalisisPage() {
                       fill="#8e9fb0"
                       fillOpacity={0}
                       strokeDasharray="5 4"
+                      animationDuration={900}
                     />
                     <Radar
-                      name="Kab. Pacitan"
+                      name="Daerah contoh"
                       dataKey="value"
-                      stroke="#086288"
-                      fill="#086288"
+                      stroke="#2F6BFF"
+                      fill="#2F6BFF"
                       fillOpacity={0.18}
                       strokeWidth={2.5}
+                      animationDuration={900}
                     />
                   </RadarChart>
                 </ResponsiveContainer>
@@ -451,7 +458,7 @@ export default function AnalisisPage() {
               <div className="legend" style={{ justifyContent: "center" }}>
                 <span>
                   <i style={{ width: 18, height: 3, borderRadius: 2, background: "var(--brand)" }} />
-                  Kab. Pacitan
+                  Daerah contoh
                 </span>
                 <span>
                   <i
@@ -477,7 +484,7 @@ export default function AnalisisPage() {
             <div className="pn-h">
               <div>
                 <h2 className="pn-t">Komposisi Anggaran</h2>
-                <span className="pn-s">Porsi dan nominal setiap bidang, APBD 2023</span>
+                <span className="pn-s">Porsi dan nominal setiap bidang · APBD 2023 (contoh)</span>
               </div>
             </div>
             <div
@@ -507,6 +514,7 @@ export default function AnalisisPage() {
                       paddingAngle={2}
                       stroke="#fff"
                       strokeWidth={2}
+                      animationDuration={900}
                     >
                       {composition.map((slice) => (
                         <Cell key={slice.name} fill={slice.color} />
@@ -696,9 +704,10 @@ export default function AnalisisPage() {
         </section>
 
         <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink2)" }}>
-          Nilai tengah dan peringkat dihitung dari 415 kabupaten; kota dan provinsi tidak
-          diikutsertakan karena struktur anggarannya berbeda. Status ditentukan dari peringkat:
-          tinggi (1 sampai 103), rendah (312 sampai 415), sebanding (di antaranya).{" "}
+          Nilai tengah dan peringkat dihitung dari {COVERAGE.kabupaten} kabupaten; kota dan
+          provinsi tidak diikutsertakan karena struktur anggarannya berbeda. Status ditentukan dari
+          peringkat: tinggi (1 sampai 103), rendah (312 sampai {COVERAGE.kabupaten}), sebanding (di
+          antaranya).{" "}
           {rupiahTriliun(TOTAL)} total belanja.
         </p>
       </main>

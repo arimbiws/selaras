@@ -132,7 +132,7 @@ export function DashboardData() {
         <article className="kpi">
           <div className="kpi-b">
             <div className="kpi-h">
-              <span className="ico" style={{ background: "var(--brand)" }}>
+              <span className="ico" style={{ background: "#2F6BFF" }}>
                 <Wallet aria-hidden="true" />
               </span>
               Total belanja dianggarkan
@@ -145,7 +145,7 @@ export function DashboardData() {
         <article className="kpi">
           <div className="kpi-b">
             <div className="kpi-h">
-              <span className="ico" style={{ background: "var(--accent)" }}>
+              <span className="ico" style={{ background: "#12B3A6" }}>
                 <Users aria-hidden="true" />
               </span>
               Porsi belanja pegawai
@@ -161,7 +161,7 @@ export function DashboardData() {
         <article className="kpi">
           <div className="kpi-b">
             <div className="kpi-h">
-              <span className="ico" style={{ background: "var(--primary)" }}>
+              <span className="ico" style={{ background: "#8B5CF6" }}>
                 <Landmark aria-hidden="true" />
               </span>
               Porsi belanja modal
@@ -177,7 +177,7 @@ export function DashboardData() {
         <article className="kpi dash">
           <div className="kpi-b">
             <div className="kpi-h">
-              <span className="ico" style={{ background: "#c26a00" }}>
+              <span className="ico" style={{ background: "#FFA50A" }}>
                 <TrendingUp aria-hidden="true" />
               </span>
               Serapan anggaran
@@ -219,13 +219,18 @@ export function DashboardData() {
                     tickLine={false}
                     unit="%"
                   />
-                  <Tooltip cursor={{ fill: "rgba(151,215,255,0.18)" }} content={<BidangTip />} />
-                  <Bar dataKey="porsi" radius={[8, 8, 0, 0]} maxBarSize={52}>
+                  <Tooltip
+                    cursor={{ fill: "rgba(151,215,255,0.18)" }}
+                    content={<BidangTip />}
+                  />
+                  <Bar
+                    dataKey="porsi"
+                    radius={[8, 8, 0, 0]}
+                    maxBarSize={52}
+                    animationDuration={900}
+                  >
                     {chart.map((point, index) => (
-                      <Cell
-                        key={point.full}
-                        fill={index === 0 ? "var(--brand)" : index === 1 ? "var(--accent)" : "#a9cfe9"}
-                      />
+                      <Cell key={point.full} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -233,11 +238,12 @@ export function DashboardData() {
             </div>
             <div className="legend" style={{ marginTop: 10 }}>
               <span>
-                <i style={{ background: "var(--brand)" }} /> Bidang terbesar: {top.short} (
+                <i style={{ background: CHART_COLORS[0] }} /> Bidang terbesar: {top.short} (
                 {fmt1(top.share)}%)
               </span>
               <span>
-                <i style={{ background: "var(--accent)" }} /> Kesehatan ({fmt1(chart[2]?.porsi ?? 0)}%)
+                <i style={{ background: CHART_COLORS[2] }} /> Kesehatan (
+                {fmt1(chart[2]?.porsi ?? 0)}%)
               </span>
             </div>
           </div>
@@ -395,7 +401,7 @@ export function DashboardData() {
                       <Link href={`/anggaran/${slugify(row.name)}`}>{row.name}</Link>
                       <span className="r">{fmt1(row.total)}</span>
                       <span className="r">{fmt1(row.share)}%</span>
-                      <span className="r">{row.rank} / 415</span>
+                      <span className="r">{row.rank} / {COVERAGE.kabupaten}</span>
                       <span>
                         <span className={`chip ${status.cls}`}>{status.label}</span>
                       </span>
@@ -412,8 +418,8 @@ export function DashboardData() {
         <div>
           <b>Bagaimana posisi anggaran ini dibandingkan kabupaten lain?</b>
           <span>
-            Analisis kebutuhan menempatkan porsi setiap bidang pada urutan 415 kabupaten, beserta
-            pertanyaan yang dapat diajukan kepada pemerintah daerah.
+            Analisis kebutuhan menempatkan porsi setiap bidang pada urutan {COVERAGE.kabupaten}{" "}
+            kabupaten, beserta pertanyaan yang dapat diajukan kepada pemerintah daerah.
           </span>
         </div>
         <Link className="btn btn-p" href="/analisis">
@@ -430,8 +436,9 @@ export function DashboardData() {
         >
           DJPK Kementerian Keuangan
         </a>
-        , Belanja Fungsi per Jenis APBD 2023, per 12 Mei 2023. Angka anggaran, belum realisasi. Nilai
-        tengah dan peringkat dihitung dari 415 kabupaten; kota dan provinsi tidak diikutsertakan.
+        , Belanja Fungsi per Jenis APBD. Data contoh memakai APBD 2023 Kabupaten Pacitan; angka
+        merupakan pagu, belum realisasi. Nilai tengah dan peringkat dihitung dari{" "}
+        {COVERAGE.kabupaten} kabupaten di seluruh Indonesia; kota dan provinsi tidak diikutsertakan.
       </p>
     </main>
   );

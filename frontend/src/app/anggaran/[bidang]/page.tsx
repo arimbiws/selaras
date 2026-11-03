@@ -5,6 +5,7 @@ import {
   BIDANG,
   BIDANG_RANK,
   BIDANG_TOTALS,
+  COVERAGE,
   JENIS,
   JENIS_COLORS,
   VALUES,
@@ -46,7 +47,7 @@ export default async function DetailAnggaran({
           <div>
             <h1>{name}</h1>
             <p className="page-sub">
-              Rincian alokasi menurut jenis belanja · Kabupaten Pacitan · APBD 2023
+              Rincian alokasi menurut jenis belanja · Daerah contoh: Kabupaten Pacitan · APBD 2023
             </p>
           </div>
           <div className="page-actions">
@@ -70,8 +71,8 @@ export default async function DetailAnggaran({
           }}
         >
           <span>
-            Angka contoh APBD 2023 per 12 Mei 2023. Realisasi belum tersedia sehingga tidak
-            ditampilkan sebagai nol.
+            Angka contoh APBD 2023 Kabupaten Pacitan. Realisasi tahun ini belum tersedia sehingga
+            tidak ditampilkan sebagai nol.
           </span>
         </section>
 
@@ -89,7 +90,7 @@ export default async function DetailAnggaran({
               <div className="kpi-h">Porsi dari total belanja</div>
               <div className="kpi-v">{fmt1(share)}%</div>
             </div>
-            <div className="kpi-f">Kabupaten Pacitan, 2023</div>
+            <div className="kpi-f">Daerah contoh, 2023</div>
           </article>
 
           <article className="kpi">
@@ -98,7 +99,7 @@ export default async function DetailAnggaran({
                 Peringkat porsi
                 <span className={`chip ${status.cls}`}>{status.label}</span>
               </div>
-              <div className="kpi-v">{rank} / 415</div>
+              <div className="kpi-v">{rank} / {COVERAGE.kabupaten}</div>
             </div>
             <div className="kpi-f">Di antara kabupaten di Indonesia</div>
           </article>

@@ -78,13 +78,34 @@ export function AnggaranView() {
     .slice(0, 6)
     .map((i) => ({ name: BIDANG[i], width: (BIDANG_TOTALS[i] / maxTotal) * 100, total: BIDANG_TOTALS[i] }));
 
+  function downloadCsv() {
+    const header = ["Bidang", ...JENIS, "Total", "Realisasi"];
+    const lines = rows.map((row) => [
+      row.name,
+      ...row.values.map((value) => String(value).replace(".", ",")),
+      String(row.total).replace(".", ","),
+      "",
+    ]);
+    const csv = [header, ...lines]
+      .map((line) => line.map((cell) => `"${cell}"`).join(","))
+      .join("\r\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "selaras-anggaran.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <main className="page">
       <section>
         <h1 className="page-title">Telusuri Anggaran</h1>
         <p className="page-sub">
           Setiap bidang dirinci menurut jenis belanjanya, sehingga terlihat berapa bagian yang
-          digunakan untuk gaji pegawai, kebutuhan operasional, atau pembangunan aset.
+          digunakan untuk gaji pegawai, kebutuhan operasional, atau pembangunan aset. Struktur ini
+          berlaku untuk seluruh kabupaten/kota; angka di bawah adalah data contoh Kabupaten Pacitan.
         </p>
       </section>
 
@@ -93,8 +114,8 @@ export function AnggaranView() {
           <label className="lb" htmlFor="f-daerah">
             Daerah
           </label>
-          <select className="sel" id="f-daerah" defaultValue="pacitan" style={{ minWidth: 220 }}>
-            <option value="pacitan">Kab. Pacitan, Jawa Timur</option>
+          <select className="sel" id="f-daerah" defaultValue="pacitan" style={{ minWidth: 250 }}>
+            <option value="pacitan">Kab. Pacitan, Jawa Timur (contoh)</option>
           </select>
         </div>
 
@@ -245,6 +266,7 @@ export function AnggaranView() {
                       paddingAngle={2}
                       stroke="#fff"
                       strokeWidth={2}
+                      animationDuration={900}
                     >
                       {slices.map((slice) => (
                         <Cell key={slice.name} fill={slice.color} />
@@ -371,7 +393,7 @@ export function AnggaranView() {
             <h2 className="pn-t">Tabel Rincian</h2>
             <span className="pn-s">Dalam miliar rupiah</span>
           </div>
-          <button type="button" className="btn btn-s btn-sm">
+          <button type="button" className="btn btn-s btn-sm" onClick={downloadCsv}>
             Unduh CSV
           </button>
         </div>
@@ -459,7 +481,8 @@ export function AnggaranView() {
           >
             DJPK Kementerian Keuangan
           </a>
-          , Belanja Fungsi per Jenis APBD 2023, per 12 Mei 2023. Angka anggaran, belum realisasi.
+          , Belanja Fungsi per Jenis APBD. Data contoh memakai APBD 2023 Kabupaten Pacitan; angka
+          merupakan pagu, belum realisasi. Cakupan rancangan mencakup seluruh kabupaten/kota.
         </p>
         <Link className="btn btn-p" href="/analisis">
           Bandingkan dengan kabupaten lain
