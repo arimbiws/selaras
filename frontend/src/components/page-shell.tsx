@@ -4,11 +4,9 @@ import { WorkspaceSearch } from "@/components/workspace-search";
 
 export function PageShell({
   active,
-  title,
   children,
 }: {
   active: string;
-  title: string;
   children: ReactNode;
 }) {
   return (
@@ -18,9 +16,6 @@ export function PageShell({
 
         <div className="main">
           <header className="bar">
-            <nav className="crumb" aria-label="Jejak halaman">
-              SELARAS <span aria-hidden="true">/</span> <b>{title}</b>
-            </nav>
             <div className="tools">
               <WorkspaceSearch />
             </div>

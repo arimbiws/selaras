@@ -45,23 +45,46 @@ export const COVERAGE = {
   kecamatan: 7285,
   desa: 83762,
   kodeDaerah: 572,
-  barisBelanja: 125757,
+  barisBelanja: 134120,
+};
+
+export const DEFAULT_REGION = {
+  kodeDjpk: "13.18",
+  nama: "Kab. Pacitan",
+  jenisDaerah: "kabupaten",
+  kodeProvinsi: "13.00",
 };
 
 export const NATIONAL_PAGU: Record<number, number> = {
-  2020: 1300.35,
-  2021: 1228.93,
   2022: 1200.87,
+  2023: 1278.15,
+  2024: 1382.33,
   2025: 1399.99,
+  2026: 1249.31,
 };
 
 export const NATIONAL_REALISASI: Record<number, number> = {
-  2020: 1119.62,
-  2021: 1145.09,
   2022: 1187.4,
+  2023: 1319.63,
+  2024: 854.86,
 };
 
-export const DATA_YEARS = [2020, 2021, 2022, 2023, 2024, 2025];
+export const PARTIAL_REALISASI = new Set([2024]);
+
+export const DATA_YEARS = [2022, 2023, 2024, 2025, 2026];
+
+export const DATA_AVAILABILITY: Array<{
+  tahun: number;
+  pagu: boolean;
+  realisasi: boolean;
+  catatan?: string;
+}> = [
+  { tahun: 2022, pagu: true, realisasi: true, catatan: "Realisasi sementara per 8 Jan 2024" },
+  { tahun: 2023, pagu: true, realisasi: true },
+  { tahun: 2024, pagu: true, realisasi: true, catatan: "Realisasi parsial per 31 Okt 2025" },
+  { tahun: 2025, pagu: true, realisasi: false, catatan: "Pagu per 18 Sep 2025" },
+  { tahun: 2026, pagu: true, realisasi: false, catatan: "Pagu per 6 Agu 2026" },
+];
 
 export const VALUES: number[][] = [
   [86.284, 65.852, 5.529, 294.181],

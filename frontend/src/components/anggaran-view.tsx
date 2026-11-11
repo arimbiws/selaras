@@ -1,19 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
-import {
-  BIDANG,
-  BIDANG_TOTALS,
-  JENIS,
-  JENIS_COLORS,
-  TOTAL,
-  VALUES,
-  fmt1,
-  rupiahMiliar,
-  slugify,
-} from "@/lib/demo-data";
+import type { BudgetBundle, Region } from "@backend/types";
+import { JENIS, JENIS_COLORS, fmt1, rupiahMiliar, slugify } from "@/lib/demo-data";
 
 type Mode = "persen" | "rupiah";
 type ChartMode = "bar" | "donut";
@@ -40,146 +31,378 @@ function SliceTip({
 
 const cell = (value: number) => (value === 0 ? "—" : value < 0.05 ? "<0,1" : fmt1(value));
 
-export function AnggaranView() {
-  const [selected, setSelected] = useState(-1);
+export function AnggaranView({
+  initialBundle,
+  regions,
+}: {
+  initialBundle: BudgetBundle;
+  regions: Region[];
+}) {
+  const [bundle, setBundle] = useState(initialBundle);
+  const [regionCode, setRegionCode] = useState(initialBundle.region.kodeDjpk);
+  const [year, setYear] = useState(initialBundle.tahun);
+  const [selectedKode, setSelectedKode] = useState("");
   const [mode, setMode] = useState<Mode>("persen");
   const [chartMode, setChartMode] = useState<ChartMode>("bar");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [regionQuery, setRegionQuery] = useState("");
+  const [flash, setFlash] = useState(false);
+  const cacheRef = useRef(new Map<string, BudgetBundle>());
+  const requestRef = useRef(0);
 
-  const indices = selected < 0 ? BIDANG.map((_, i) => i) : [selected];
-  const sorted = [...indices].sort((a, b) => BIDANG_TOTALS[b] - BIDANG_TOTALS[a]);
-  const grand = indices.reduce((a, i) => a + BIDANG_TOTALS[i], 0);
-  const maxTotal = Math.max(...BIDANG_TOTALS);
+  useEffect(() => {
+    if (!flash) return;
+    const timer = window.setTimeout(() => setFlash(false), 1000);
+    return () => window.clearTimeout(timer);
+  }, [flash]);
 
-  const slices: Slice[] = JENIS.map((name, j) => {
-    const value = indices.reduce((a, i) => a + VALUES[i][j], 0);
-    return { name, value, share: (value / grand) * 100, color: JENIS_COLORS[j] };
+  const frame = bundle.pagu;
+  const realisasiFrame = bundle.realisasi;
+  const functions = frame?.functions ?? [];
+  const realisasiByKode = new Map(
+    (realisasiFrame?.functions ?? []).map((item) => [item.kode, item.totalMiliar]),
+  );
+
+  const selectedIndex = selectedKode ? functions.findIndex((item) => item.kode === selectedKode) : -1;
+  const indices =
+    selectedIndex >= 0 ? [selectedIndex] : functions.map((_, index) => index);
+  const sorted = [...indices].sort(
+    (a, b) => functions[b]?.totalMiliar - functions[a]?.totalMiliar,
+  );
+  const grand = indices.reduce((sum, index) => sum + (functions[index]?.totalMiliar ?? 0), 0);
+  const maxTotal = Math.max(...functions.map((item) => item.totalMiliar), 0);
+  const hasRealisasi = Boolean(realisasiFrame?.available);
+  const canOpenDetail = Boolean(frame?.available);
+  const normalizedQuery = regionQuery.trim().toLocaleLowerCase("id-ID");
+  const currentRegion =
+    regions.find((region) => region.kodeDjpk === regionCode) ?? bundle.region;
+  const filteredRegions = normalizedQuery
+    ? regions.filter((region) => region.nama.toLocaleLowerCase("id-ID").includes(normalizedQuery))
+    : regions;
+  const regionOptions = filteredRegions.some((region) => region.kodeDjpk === regionCode)
+    ? filteredRegions
+    : [currentRegion, ...filteredRegions];
+  const yearOptions = bundle.years.length
+    ? bundle.years
+    : [{ tahun: year, pagu: Boolean(frame?.available), realisasi: false }];
+
+  const slices: Slice[] = JENIS.map((name, jenisIndex) => {
+    const value = indices.reduce(
+      (sum, index) => sum + (functions[index]?.values[jenisIndex] ?? 0),
+      0,
+    );
+    return {
+      name,
+      value,
+      share: grand > 0 ? (value / grand) * 100 : 0,
+      color: JENIS_COLORS[jenisIndex],
+    };
   });
 
-  const rows = sorted.map((i) => ({
-    index: i,
-    name: BIDANG[i],
-    total: BIDANG_TOTALS[i],
-    values: VALUES[i],
-    width: mode === "persen" ? "100%" : `${(BIDANG_TOTALS[i] / maxTotal) * 100}%`,
-    parts: VALUES[i].map((value, j) => ({
-      color: JENIS_COLORS[j],
-      label: JENIS[j],
-      value,
-      text:
-        value === 0
-          ? "—"
-          : mode === "persen"
-            ? `${fmt1((value / BIDANG_TOTALS[i]) * 100)}%`
-            : rupiahMiliar(value),
-    })),
-  }));
+  const rows = sorted.map((index) => {
+    const item = functions[index];
+    return {
+      index,
+      kode: item.kode,
+      name: item.nama,
+      total: item.totalMiliar,
+      values: item.values,
+      realisasi: realisasiByKode.get(item.kode) ?? null,
+      width: mode === "persen" ? "100%" : `${(item.totalMiliar / maxTotal) * 100}%`,
+      parts: item.values.map((value, jenisIndex) => ({
+        color: JENIS_COLORS[jenisIndex],
+        label: JENIS[jenisIndex],
+        value,
+        text:
+          value === 0
+            ? "—"
+            : mode === "persen"
+              ? `${fmt1((value / item.totalMiliar) * 100)}%`
+              : rupiahMiliar(value),
+      })),
+    };
+  });
 
-  const pairs = sorted
-    .slice(0, 6)
-    .map((i) => ({ name: BIDANG[i], width: (BIDANG_TOTALS[i] / maxTotal) * 100, total: BIDANG_TOTALS[i] }));
+  const pairs = sorted.slice(0, 6).map((index) => {
+    const item = functions[index];
+    const realisasi = realisasiByKode.get(item.kode) ?? null;
+    return {
+      name: item.nama,
+      total: item.totalMiliar,
+      realisasi,
+      serapan: realisasi !== null && item.totalMiliar > 0 ? (realisasi / item.totalMiliar) * 100 : null,
+      width: (item.totalMiliar / maxTotal) * 100,
+      realisasiWidth:
+        realisasi !== null && maxTotal > 0 ? Math.min(100, (realisasi / maxTotal) * 100) : 0,
+    };
+  });
+
+  const realisasiGrand = indices.reduce(
+    (sum, index) => sum + (realisasiByKode.get(functions[index]?.kode ?? "") ?? 0),
+    0,
+  );
+
+  async function load(nextRegion: string, nextYear: number) {
+    const key = `${nextRegion}:${nextYear}`;
+    const previousKode = bundle.region.kodeDjpk;
+    const previousYear = bundle.tahun;
+    const cached = cacheRef.current.get(key);
+    setError("");
+
+    if (cached) {
+      requestRef.current += 1;
+      setLoading(false);
+      setBundle(cached);
+      setSelectedKode("");
+      setFlash(true);
+      return;
+    }
+
+    const requestId = ++requestRef.current;
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `/api/budget?kode=${encodeURIComponent(nextRegion)}&tahun=${nextYear}`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: string };
+        throw new Error(payload.error ?? "Data tidak dapat dimuat.");
+      }
+      const next = (await response.json()) as BudgetBundle;
+      if (requestId !== requestRef.current) return;
+      cacheRef.current.set(key, next);
+      setBundle(next);
+      setSelectedKode("");
+      setFlash(true);
+    } catch (caught) {
+      if (requestId !== requestRef.current) return;
+      setError(caught instanceof Error ? caught.message : "Data tidak dapat dimuat.");
+      setRegionCode(previousKode);
+      setYear(previousYear);
+    } finally {
+      if (requestId === requestRef.current) setLoading(false);
+    }
+  }
+
+  const filterBar = (
+    <section aria-label="Filter" className="filter-bar">
+      <div className="fld">
+        <label className="lb" htmlFor="f-cari-daerah">
+          Cari daerah
+        </label>
+        <input
+          className="sel"
+          id="f-cari-daerah"
+          value={regionQuery}
+          onChange={(event) => setRegionQuery(event.target.value)}
+          placeholder="Nama kabupaten/kota"
+          style={{ minWidth: 220 }}
+        />
+      </div>
+
+      <div className="fld">
+        <label className="lb" htmlFor="f-daerah">
+          Daerah
+        </label>
+        <select
+          className="sel"
+          id="f-daerah"
+          value={regionCode}
+          onChange={(event) => {
+            const next = event.target.value;
+            setRegionCode(next);
+            void load(next, year);
+          }}
+          style={{ minWidth: 250 }}
+        >
+          {regionOptions.map((region) => (
+            <option value={region.kodeDjpk} key={region.kodeDjpk}>
+              {region.nama}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="fld">
+        <label className="lb" htmlFor="f-tahun">
+          Tahun
+        </label>
+        <select
+          className="sel"
+          id="f-tahun"
+          value={String(year)}
+          onChange={(event) => {
+            const next = Number(event.target.value);
+            setYear(next);
+            void load(regionCode, next);
+          }}
+          style={{ minWidth: 110 }}
+        >
+          {yearOptions.map((item) => (
+            <option value={item.tahun} key={item.tahun} disabled={!item.pagu}>
+              {item.tahun}
+              {item.pagu ? "" : " · belum tersedia"}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="fld">
+        <label className="lb" htmlFor="f-bidang">
+          Bidang
+        </label>
+        <select
+          className="sel"
+          id="f-bidang"
+          value={selectedKode}
+          onChange={(event) => setSelectedKode(event.target.value)}
+          style={{ minWidth: 240 }}
+        >
+          <option value="">Semua bidang</option>
+          {functions.map((item) => (
+            <option value={item.kode} key={item.kode}>
+              {item.nama}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="fld">
+        <span className="lb">Satuan</span>
+        <div className="seg" role="group" aria-label="Satuan angka">
+          <button type="button" aria-pressed={mode === "persen"} onClick={() => setMode("persen")}>
+            Persen
+          </button>
+          <button type="button" aria-pressed={mode === "rupiah"} onClick={() => setMode("rupiah")}>
+            Rupiah
+          </button>
+        </div>
+      </div>
+
+      <div className="fld">
+        <span className="lb">Jenis grafik</span>
+        <div className="seg" role="group" aria-label="Jenis grafik">
+          <button
+            type="button"
+            aria-pressed={chartMode === "bar"}
+            onClick={() => setChartMode("bar")}
+          >
+            Batang
+          </button>
+          <button
+            type="button"
+            aria-pressed={chartMode === "donut"}
+            onClick={() => setChartMode("donut")}
+          >
+            Donat
+          </button>
+        </div>
+      </div>
+    </section>
+  );
 
   function downloadCsv() {
-    const header = ["Bidang", ...JENIS, "Total", "Realisasi"];
-    const lines = rows.map((row) => [
-      row.name,
-      ...row.values.map((value) => String(value).replace(".", ",")),
-      String(row.total).replace(".", ","),
-      "",
-    ]);
+    const header = ["Bidang", ...JENIS, "Total", "Realisasi", "Serapan"];
+    const lines = rows.map((row) => {
+      const serapan =
+        row.realisasi !== null && row.total > 0 ? (row.realisasi / row.total) * 100 : null;
+      return [
+        row.name,
+        ...row.values.map((value) => String(value).replace(".", ",")),
+        String(row.total).replace(".", ","),
+        row.realisasi === null ? "" : String(row.realisasi).replace(".", ","),
+        serapan === null ? "" : `${fmt1(serapan).replace(".", ",")}%`,
+      ];
+    });
     const csv = [header, ...lines]
-      .map((line) => line.map((cell) => `"${cell}"`).join(","))
+      .map((line) => line.map((value) => `"${value}"`).join(","))
       .join("\r\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "selaras-anggaran.csv";
+    link.download = `selaras-anggaran-${regionCode.replace(".", "-")}-${year}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
 
+  const pageClass = `page${loading ? " is-updating" : ""}${flash ? " data-flash" : ""}`;
+
+  if (!frame?.available) {
+    return (
+      <main className={pageClass} aria-busy={loading}>
+        <section className="page-head">
+          <div>
+            <h1>Telusuri Anggaran</h1>
+            <p className="page-sub">
+              Data anggaran {frame?.region.nama ?? "daerah"} tahun {year} belum tersedia.
+            </p>
+          </div>
+        </section>
+
+        {filterBar}
+
+        {loading ? (
+          <div className="loading-strip" role="status" aria-live="polite">
+            <span className="spinner" aria-hidden="true" />
+            <span>
+              Memuat anggaran {currentRegion.nama} tahun {year}…
+            </span>
+            <span className="skeleton loading-strip-bar" aria-hidden="true" />
+          </div>
+        ) : null}
+        {error ? <span className="chip c-lo">{error}</span> : null}
+
+        <section className="callout">
+          <div>
+            <b>Pilih daerah atau tahun lain.</b>
+            <span>
+              Tahun tanpa berkas sumber tidak ditampilkan sebagai angka nol. Periksa halaman
+              sumber data untuk melihat ketersediaan.
+            </span>
+          </div>
+          <Link className="btn btn-p" href="/sumber-data">
+            Lihat sumber data
+          </Link>
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <main className="page">
-      <section>
+    <main className={pageClass} aria-busy={loading}>
+      <section className="page-head">
         <h1 className="page-title">Telusuri Anggaran</h1>
         <p className="page-sub">
-          Setiap bidang dirinci menurut jenis belanjanya, sehingga terlihat berapa bagian yang
-          digunakan untuk gaji pegawai, kebutuhan operasional, atau pembangunan aset. Struktur ini
-          berlaku untuk seluruh kabupaten/kota; angka di bawah adalah data contoh Kabupaten Pacitan.
+          Setiap bidang dirinci menurut jenis belanja. {frame.region.nama} · APBD {frame.tahun}.
+          Pilih daerah dan tahun untuk memuat data lain.
         </p>
       </section>
 
-      <section aria-label="Filter" className="filter-bar">
-        <div className="fld">
-          <label className="lb" htmlFor="f-daerah">
-            Daerah
-          </label>
-          <select className="sel" id="f-daerah" defaultValue="pacitan" style={{ minWidth: 250 }}>
-            <option value="pacitan">Kab. Pacitan, Jawa Timur (contoh)</option>
-          </select>
-        </div>
+      {filterBar}
 
-        <div className="fld">
-          <label className="lb" htmlFor="f-tahun">
-            Tahun
-          </label>
-          <select className="sel" id="f-tahun" defaultValue="2023" style={{ minWidth: 100 }}>
-            <option value="2023">2023</option>
-          </select>
+      {loading ? (
+        <div className="loading-strip" role="status" aria-live="polite">
+          <span className="spinner" aria-hidden="true" />
+          <span>
+            Memuat anggaran {currentRegion.nama} tahun {year}…
+          </span>
+          <span className="skeleton loading-strip-bar" aria-hidden="true" />
         </div>
+      ) : null}
 
-        <div className="fld">
-          <label className="lb" htmlFor="f-bidang">
-            Bidang
-          </label>
-          <select
-            className="sel"
-            id="f-bidang"
-            value={String(selected)}
-            onChange={(event) => setSelected(Number(event.target.value))}
-            style={{ minWidth: 240 }}
-          >
-            <option value="-1">Semua bidang</option>
-            {BIDANG.map((name, index) => (
-              <option value={String(index)} key={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="fld">
-          <span className="lb">Satuan</span>
-          <div className="seg" role="group" aria-label="Satuan angka">
-            <button type="button" aria-pressed={mode === "persen"} onClick={() => setMode("persen")}>
-              Persen
-            </button>
-            <button type="button" aria-pressed={mode === "rupiah"} onClick={() => setMode("rupiah")}>
-              Rupiah
-            </button>
-          </div>
-        </div>
-
-        <div className="fld">
-          <span className="lb">Jenis grafik</span>
-          <div className="seg" role="group" aria-label="Jenis grafik">
-            <button
-              type="button"
-              aria-pressed={chartMode === "bar"}
-              onClick={() => setChartMode("bar")}
-            >
-              Batang
-            </button>
-            <button
-              type="button"
-              aria-pressed={chartMode === "donut"}
-              onClick={() => setChartMode("donut")}
-            >
-              Donat
-            </button>
-          </div>
-        </div>
-      </section>
+      <div className="status-row">
+        <span className={`chip ${bundle.source === "supabase" ? "c-ok" : "c-mid"}`}>
+          {bundle.source === "supabase" ? "Supabase" : "Data contoh"}
+        </span>
+        {!loading && hasRealisasi ? <span className="chip c-ok">Realisasi tersedia</span> : null}
+        {!loading && !hasRealisasi ? (
+          <span className="chip c-wait">Realisasi belum tersedia</span>
+        ) : null}
+        {error ? <span className="chip c-lo">{error}</span> : null}
+      </div>
 
       <section className="pn">
         <div className="pn-h">
@@ -194,9 +417,9 @@ export function AnggaranView() {
             </span>
           </div>
           <div className="legend">
-            {JENIS.map((name, j) => (
+            {JENIS.map((name, index) => (
               <span key={name}>
-                <i style={{ background: JENIS_COLORS[j] }} />
+                <i style={{ background: JENIS_COLORS[index] }} />
                 {name}
               </span>
             ))}
@@ -207,21 +430,31 @@ export function AnggaranView() {
           {chartMode === "bar" ? (
             <div>
               {rows.map((row) => (
-                <div className="comp-row" key={row.name}>
+                <div className="comp-row" key={row.kode}>
                   <div className="comp-head">
-                    <Link href={`/anggaran/${slugify(row.name)}`}>{row.name}</Link>
+                    {canOpenDetail ? (
+                      <Link
+                        href={`/anggaran/${slugify(row.name)}?kode=${encodeURIComponent(
+                          regionCode,
+                        )}&tahun=${year}`}
+                      >
+                        {row.name}
+                      </Link>
+                    ) : (
+                      <b>{row.name}</b>
+                    )}
                     <span style={{ fontSize: 13.5, color: "var(--ink2)" }}>
                       {rupiahMiliar(row.total)}
                     </span>
                   </div>
                   <div style={{ width: row.width, minWidth: 40 }}>
                     <div className="comp-bar">
-                      {row.values.map((value, j) =>
+                      {row.values.map((value, index) =>
                         value > 0 ? (
                           <span
-                            key={JENIS[j]}
-                            style={{ flex: value, background: JENIS_COLORS[j] }}
-                            title={`${JENIS[j]} ${rupiahMiliar(value)}`}
+                            key={JENIS[index]}
+                            style={{ flex: value, background: JENIS_COLORS[index] }}
+                            title={`${JENIS[index]} ${rupiahMiliar(value)}`}
                           />
                         ) : null,
                       )}
@@ -261,6 +494,8 @@ export function AnggaranView() {
                       data={slices}
                       dataKey="value"
                       nameKey="name"
+                      cx="50%"
+                      cy="50%"
                       innerRadius={78}
                       outerRadius={112}
                       paddingAngle={2}
@@ -275,22 +510,12 @@ export function AnggaranView() {
                     <Tooltip content={<SliceTip />} />
                   </PieChart>
                 </ResponsiveContainer>
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "grid",
-                    placeItems: "center",
-                    pointerEvents: "none",
-                  }}
-                >
-                  <div style={{ textAlign: "center", width: 140 }}>
-                    <span style={{ fontSize: 12, color: "var(--ink2)" }}>
-                      {selected < 0 ? "Seluruh bidang" : BIDANG[selected]}
+                <div className="donut-center" aria-hidden="true">
+                  <div className="donut-center-inner">
+                    <span>
+                      {selectedIndex < 0 ? "Seluruh bidang" : functions[selectedIndex]?.nama}
                     </span>
-                    <b style={{ display: "block", fontSize: 17, lineHeight: 1.25 }}>
-                      {rupiahMiliar(grand)}
-                    </b>
+                    <b>{rupiahMiliar(grand)}</b>
                   </div>
                 </div>
               </div>
@@ -328,10 +553,14 @@ export function AnggaranView() {
           <div>
             <h2 className="pn-t">Anggaran dan Realisasi</h2>
             <span className="pn-s">
-              Pratinjau tata letak. Realisasi belum dimuat, sehingga tidak dihitung sebagai nol.
+              {hasRealisasi
+                ? `Pagu dan realisasi ${frame.region.nama} tahun ${frame.tahun}.`
+                : "Realisasi belum dimuat untuk tahun ini, sehingga tidak dihitung sebagai nol."}
             </span>
           </div>
-          <span className="chip c-wait">Realisasi belum dimuat</span>
+          <span className={`chip ${hasRealisasi ? "c-ok" : "c-wait"}`}>
+            {hasRealisasi ? "Realisasi tersedia" : "Realisasi belum tersedia"}
+          </span>
         </div>
         <div className="pn-b" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <div className="legend" style={{ paddingBottom: 8 }}>
@@ -340,8 +569,13 @@ export function AnggaranView() {
               Anggaran (pagu)
             </span>
             <span>
-              <i style={{ border: "1.5px dashed #8e9fb0", background: "transparent" }} />
-              Realisasi (menunggu berkas DJPK)
+              <i
+                style={{
+                  border: "1.5px dashed #8e9fb0",
+                  background: hasRealisasi ? "#12B3A6" : "transparent",
+                }}
+              />
+              Realisasi {hasRealisasi ? "" : "(belum tersedia)"}
             </span>
           </div>
 
@@ -350,7 +584,7 @@ export function AnggaranView() {
               key={pair.name}
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(0,190px) minmax(0,1fr) minmax(0,120px)",
+                gridTemplateColumns: "minmax(0,190px) minmax(0,1fr) minmax(0,150px)",
                 gap: "6px 16px",
                 alignItems: "center",
                 padding: "10px 4px",
@@ -371,16 +605,21 @@ export function AnggaranView() {
                 <div
                   style={{
                     height: 14,
-                    width: `${pair.width}%`,
+                    width: hasRealisasi ? `${pair.realisasiWidth}%` : `${pair.width}%`,
                     minWidth: 6,
-                    border: "1.5px dashed #b9c9d8",
+                    border: hasRealisasi ? 0 : "1.5px dashed #b9c9d8",
+                    background: hasRealisasi ? "#12B3A6" : "transparent",
                     borderRadius: 4,
                   }}
                 />
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontWeight: 700 }}>{rupiahMiliar(pair.total)}</div>
-                <div style={{ fontSize: 12, color: "var(--ink2)" }}>realisasi: belum ada</div>
+                <div style={{ fontSize: 12, color: "var(--ink2)" }}>
+                  {pair.realisasi === null
+                    ? "realisasi: belum ada"
+                    : `realisasi ${rupiahMiliar(pair.realisasi)} · ${fmt1(pair.serapan ?? 0)}%`}
+                </div>
               </div>
             </div>
           ))}
@@ -418,44 +657,59 @@ export function AnggaranView() {
                 </span>
               </div>
 
-              {rows.map((row) => (
-                <div className="tr tr-8" role="row" key={row.name}>
-                  <Link role="cell" href={`/anggaran/${slugify(row.name)}`}>
-                    {row.name}
-                  </Link>
-                  {row.values.map((value, j) => (
-                    <span role="cell" className="r" key={JENIS[j]}>
-                      {cell(value)}
+              {rows.map((row) => {
+                const serapan =
+                  row.realisasi !== null && row.total > 0
+                    ? (row.realisasi / row.total) * 100
+                    : null;
+                return (
+                  <div className="tr tr-8" role="row" key={row.kode}>
+                    {canOpenDetail ? (
+                      <Link
+                        role="cell"
+                        href={`/anggaran/${slugify(row.name)}?kode=${encodeURIComponent(
+                          regionCode,
+                        )}&tahun=${year}`}
+                      >
+                        {row.name}
+                      </Link>
+                    ) : (
+                      <span role="cell">{row.name}</span>
+                    )}
+                    {row.values.map((value, index) => (
+                      <span role="cell" className="r" key={JENIS[index]}>
+                        {cell(value)}
+                      </span>
+                    ))}
+                    <b role="cell" className="r">
+                      {fmt1(row.total)}
+                    </b>
+                    <span role="cell" className="r" style={{ color: "var(--ink2)" }}>
+                      {row.realisasi === null ? "belum ada" : fmt1(row.realisasi)}
                     </span>
-                  ))}
-                  <b role="cell" className="r">
-                    {fmt1(row.total)}
-                  </b>
-                  <span role="cell" className="r" style={{ color: "var(--ink2)" }}>
-                    belum ada
-                  </span>
-                  <span role="cell" className="r" style={{ color: "var(--ink2)" }}>
-                    belum ada
-                  </span>
-                </div>
-              ))}
+                    <span role="cell" className="r" style={{ color: "var(--ink2)" }}>
+                      {serapan === null ? "belum ada" : `${fmt1(serapan)}%`}
+                    </span>
+                  </div>
+                );
+              })}
 
-              {selected < 0 && (
+              {selectedIndex < 0 && (
                 <div className="tr tr-8 tr-total" role="row">
                   <span role="cell">Seluruh bidang</span>
-                  {JENIS.map((name, j) => (
+                  {JENIS.map((name, index) => (
                     <span className="r" role="cell" key={name}>
-                      {fmt1(slices[j].value)}
+                      {fmt1(slices[index].value)}
                     </span>
                   ))}
                   <span className="r" role="cell">
-                    {fmt1(TOTAL)}
+                    {fmt1(grand)}
                   </span>
                   <span className="r" role="cell" style={{ color: "var(--ink2)", fontWeight: 500 }}>
-                    belum ada
+                    {hasRealisasi ? fmt1(realisasiGrand) : "belum ada"}
                   </span>
                   <span className="r" role="cell" style={{ color: "var(--ink2)", fontWeight: 500 }}>
-                    belum ada
+                    {hasRealisasi && grand > 0 ? `${fmt1((realisasiGrand / grand) * 100)}%` : "belum ada"}
                   </span>
                 </div>
               )}
@@ -481,8 +735,8 @@ export function AnggaranView() {
           >
             DJPK Kementerian Keuangan
           </a>
-          , Belanja Fungsi per Jenis APBD. Data contoh memakai APBD 2023 Kabupaten Pacitan; angka
-          merupakan pagu, belum realisasi. Cakupan rancangan mencakup seluruh kabupaten/kota.
+          , Belanja Fungsi per Jenis APBD. {frame.region.nama}, APBD {frame.tahun}. Nilai kosong
+          tidak diubah menjadi nol; tahun tanpa realisasi ditandai belum tersedia.
         </p>
         <Link className="btn btn-p" href="/analisis">
           Bandingkan dengan kabupaten lain

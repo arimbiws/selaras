@@ -6,14 +6,16 @@ export function Navbar() {
   return (
     <header className="l-nav">
       <Link href="/" className="l-brand" aria-label="SELARAS, beranda">
-        <Image
-          src="/logo.png"
-          alt=""
-          width={150}
-          height={40}
-          className="h-9 w-auto object-contain"
-          priority
-        />
+        <span className="logo-badge">
+          <Image
+            src="/logo.png"
+            alt=""
+            width={150}
+            height={40}
+            className="logo-img"
+            priority
+          />
+        </span>
         <span className="brand-word">SELARAS</span>
       </Link>
 

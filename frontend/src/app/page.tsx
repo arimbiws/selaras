@@ -1,13 +1,23 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  ChartNoAxesCombined,
+  Building2,
+  CheckCircle2,
   Database,
-  FlaskConical,
-  Landmark,
-  LayoutDashboard,
+  Download,
+  Eye,
+  FileSpreadsheet,
+  Layers3,
+  Map,
+  MonitorSmartphone,
+  Scale,
+  ShieldCheck,
   TrendingUp,
 } from "lucide-react";
+import { FaqAccordion } from "@/components/landing/faq-accordion";
+import { FeatureTabs } from "@/components/landing/feature-tabs";
+import { CountUp } from "@/components/landing/count-up";
+import { Reveal } from "@/components/landing/reveal";
 import { Footer } from "@/components/footer";
 import { Navbar } from "@/components/navbar";
 import {
@@ -24,53 +34,82 @@ import {
   rupiahTriliun,
 } from "@/lib/demo-data";
 
-const features = [
+const stats = [
   {
-    icon: LayoutDashboard,
-    href: "/dashboard",
-    title: "Dashboard",
-    desc: "Ringkasan indikator utama: total belanja, komposisi menurut bidang, dan ketersediaan data antartahun.",
+    icon: Building2,
+    value: COVERAGE.kabupatenKota,
+    label: "Kabupaten & kota",
+    desc: "Satu standar klasifikasi anggaran",
     color: "#2F6BFF",
   },
   {
-    icon: Landmark,
-    href: "/anggaran",
-    title: "Anggaran",
-    desc: "Telusuri anggaran menurut bidang dan jenis belanja, dilengkapi tabel rincian yang dapat diunduh.",
+    icon: Map,
+    value: COVERAGE.provinsi,
+    label: "Provinsi",
+    desc: "Dari Aceh hingga Papua",
     color: "#12B3A6",
   },
   {
-    icon: ChartNoAxesCombined,
-    href: "/analisis",
-    title: "Analisis Kebutuhan",
-    desc: "Bandingkan porsi anggaran dengan nilai tengah kabupaten lain, disertai indikator kebutuhan wilayah.",
+    icon: Layers3,
+    value: BIDANG.length,
+    label: "Bidang belanja",
+    desc: "Pendidikan, kesehatan, dan lainnya",
     color: "#8B5CF6",
   },
   {
-    icon: FlaskConical,
-    href: "/simulasi",
-    title: "Simulasi Alokasi",
-    desc: "Susun skenario pembagian anggaran dan lihat dampaknya terhadap belanja per penduduk.",
+    icon: Database,
+    value: COVERAGE.barisBelanja,
+    label: "Baris data",
+    desc: "Tervalidasi dari berkas resmi",
     color: "#FFA50A",
   },
 ];
 
-const stats = [
+const steps = [
   {
-    value: String(COVERAGE.kabupatenKota),
-    label: "kabupaten dan kota di seluruh Indonesia dalam satu standar klasifikasi anggaran",
+    icon: FileSpreadsheet,
+    title: "Data resmi dikumpulkan",
+    desc: "APBD dari DJPK Kementerian Keuangan, dilengkapi data wilayah dari BPS dan Kemendagri.",
+    color: "#2F6BFF",
   },
   {
-    value: String(COVERAGE.provinsi),
-    label: "provinsi, dari Aceh hingga Papua, dengan kode wilayah yang seragam",
+    icon: ShieldCheck,
+    title: "Diselaraskan & divalidasi",
+    desc: "Kode wilayah, nama bidang, dan tahun diseragamkan; nilai yang belum tersedia ditandai jelas.",
+    color: "#12B3A6",
   },
   {
-    value: "9",
-    label: "bidang belanja, antara lain pendidikan, kesehatan, dan perlindungan sosial",
+    icon: MonitorSmartphone,
+    title: "Disajikan untuk publik",
+    desc: "Porsi, nilai tengah, dan peringkat ditampilkan dalam tampilan yang ringkas dan mudah ditelusuri.",
+    color: "#8B5CF6",
+  },
+];
+
+const benefits = [
+  {
+    icon: ShieldCheck,
+    title: "Berbasis data resmi",
+    desc: "Setiap angka dapat dilacak ke sumber DJPK, BPS, atau Kemendagri.",
+    color: "#2F6BFF",
   },
   {
-    value: COVERAGE.barisBelanja.toLocaleString("id-ID"),
-    label: "baris data belanja yang sudah divalidasi dari berkas resmi DJPK",
+    icon: Scale,
+    title: "Perbandingan setara",
+    desc: "Porsi dan nilai tengah membuat prioritas daerah dapat dinilai objektif.",
+    color: "#12B3A6",
+  },
+  {
+    icon: Eye,
+    title: "Batasan transparan",
+    desc: "Tahun yang belum tersedia tidak diisi nol; konteks selalu disertakan.",
+    color: "#8B5CF6",
+  },
+  {
+    icon: Download,
+    title: "Siap digunakan",
+    desc: "Tanpa akun, tanpa instalasi. Tabel anggaran dapat diunduh sebagai CSV.",
+    color: "#FFA50A",
   },
 ];
 
@@ -80,7 +119,7 @@ export default function LandingPage() {
   const educationShare = fmt1(pct(education));
 
   return (
-    <div className="shell">
+    <div className="shell landing">
       <Navbar />
 
       <main className="l-main">
@@ -88,16 +127,11 @@ export default function LandingPage() {
           <div className="hero-copy">
             <span className="eyebrow">Transparansi anggaran daerah</span>
             <h1>
-              Ketahui untuk apa anggaran daerah <span>dibelanjakan.</span>
+              Ke mana anggaran daerah <span>dibelanjakan?</span>
             </h1>
             <p className="hero-lead">
-              SELARAS menyajikan data Anggaran Pendapatan dan Belanja Daerah (APBD) dari seluruh
-              Indonesia secara ringkas, lalu membandingkannya dengan kabupaten lain agar pola
-              belanja suatu daerah dapat dinilai secara objektif.
-            </p>
-            <p className="hero-sub">
-              Ditujukan bagi masyarakat, mahasiswa, peneliti, dan jurnalis yang memerlukan data
-              anggaran yang mudah ditelusuri.
+              Data APBD dari seluruh Indonesia, disusun agar porsi, prioritas, dan posisinya mudah
+              dibandingkan.
             </p>
             <div className="hero-actions">
               <Link className="btn btn-p" href="/anggaran" style={{ minHeight: 54, fontSize: 16 }}>
@@ -105,12 +139,12 @@ export default function LandingPage() {
                 <ArrowRight size={18} aria-hidden="true" />
               </Link>
               <Link className="btn btn-s" href="/sumber-data" style={{ minHeight: 54 }}>
-                Lihat sumber data
+                Pelajari sumber data
               </Link>
             </div>
             <span className="hero-note">
-              Data contoh: anggaran APBD Kabupaten Pacitan 2023. Cakupan rancangan: 514 kabupaten/kota
-              di 38 provinsi.
+              Data contoh: APBD Kab. Pacitan 2023 · Cakupan {COVERAGE.kabupatenKota} kabupaten/kota
+              di {COVERAGE.provinsi} provinsi.
             </span>
           </div>
 
@@ -133,22 +167,22 @@ export default function LandingPage() {
                 </div>
 
                 <div className="segbar" role="img" aria-label="Komposisi belanja menurut jenis">
-                  {JENIS.map((name, j) => (
+                  {JENIS.map((name, index) => (
                     <span
                       key={name}
-                      style={{ flex: JENIS_TOTALS[j], background: JENIS_COLORS[j] }}
-                      title={`${name} ${fmt1(pct(JENIS_TOTALS[j]))}%`}
+                      style={{ flex: JENIS_TOTALS[index], background: JENIS_COLORS[index] }}
+                      title={`${name} ${fmt1(pct(JENIS_TOTALS[index]))}%`}
                     />
                   ))}
                 </div>
 
                 <div className="jenis-list">
-                  {JENIS.map((name, j) => (
+                  {JENIS.map((name, index) => (
                     <div className="jenis-row" key={name}>
-                      <i style={{ background: JENIS_COLORS[j] }} aria-hidden="true" />
+                      <i style={{ background: JENIS_COLORS[index] }} aria-hidden="true" />
                       <strong>{name}</strong>
-                      <span>{rupiahMiliar(JENIS_TOTALS[j])}</span>
-                      <b>{fmt1(pct(JENIS_TOTALS[j]))}%</b>
+                      <span>{rupiahMiliar(JENIS_TOTALS[index])}</span>
+                      <b>{fmt1(pct(JENIS_TOTALS[index]))}%</b>
                     </div>
                   ))}
                 </div>
@@ -169,82 +203,156 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section aria-label="Cakupan data" className="stats">
-          {stats.map((stat) => (
-            <div className="stat" key={stat.label}>
-              <b>{stat.value}</b>
-              <span>{stat.label}</span>
+        <Reveal>
+          <section className="stats-section" aria-labelledby="coverage-title">
+            <div className="stats-head">
+              <div>
+                <span className="eyebrow">Cakupan nasional</span>
+                <h2 id="coverage-title">Satu standar untuk seluruh Indonesia</h2>
+              </div>
+              <p>Data daerah yang seragam, sehingga perbandingan tetap adil dan kontekstual.</p>
             </div>
-          ))}
-        </section>
 
-        <section style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          <div className="section-head">
-            <h2>Empat cara menelaah anggaran daerah</h2>
-            <p>
-              Setiap fitur menjawab pertanyaan yang berbeda, dan seluruhnya bersumber dari data yang
-              sama.
-            </p>
-          </div>
+            <div className="stats">
+              {stats.map(({ icon: Icon, value, label, desc, color }, index) => (
+                <Reveal key={label} className="stat-card-wrap" delay={index * 80}>
+                  <div className="stat-card">
+                    <span className="stat-icon" style={{ background: color }}>
+                      <Icon aria-hidden="true" />
+                    </span>
+                    <CountUp to={value} className="stat-value" />
+                    <b>{label}</b>
+                    <span>{desc}</span>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </section>
+        </Reveal>
 
-          <div className="features">
-            {features.map(({ icon: Icon, href, title, desc, color }) => (
-              <Link key={href} href={href} className="card feat">
-                <span className="ico" style={{ background: color }}>
-                  <Icon aria-hidden="true" />
-                </span>
-                <b>{title}</b>
-                <span>{desc}</span>
+        <Reveal>
+          <section className="features-section" id="fitur">
+            <div className="section-head">
+              <span className="eyebrow">Fitur utama</span>
+              <h2>Empat cara menelaah anggaran daerah</h2>
+              <p>Pilih fitur untuk melihat pratinjau, lalu buka halaman lengkapnya.</p>
+            </div>
+            <FeatureTabs />
+          </section>
+        </Reveal>
+
+        <Reveal>
+          <section className="how" aria-labelledby="how-title">
+            <div className="section-head section-head-center">
+              <span className="eyebrow">Cara kerja</span>
+              <h2 id="how-title">Dari data resmi menjadi informasi yang dapat dibandingkan</h2>
+              <p>Tiga tahap yang sama untuk setiap daerah, dari berkas mentah hingga siap dibaca.</p>
+            </div>
+
+            <div className="how-track">
+              <span className="how-line" aria-hidden="true" />
+              <span className="how-flow" aria-hidden="true" />
+              {steps.map(({ icon: Icon, title, desc, color }, index) => (
+                <article className="how-step" key={title}>
+                  <span className="how-node" style={{ background: color }}>
+                    <Icon aria-hidden="true" />
+                  </span>
+                  <span className="how-index">0{index + 1}</span>
+                  <b>{title}</b>
+                  <p>{desc}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        </Reveal>
+
+        <Reveal>
+          <section className="why" aria-labelledby="why-title">
+            <div className="why-copy">
+              <span className="eyebrow">Mengapa SELARAS</span>
+              <h2 id="why-title">Data yang rapi, konteks yang jujur.</h2>
+              <p>
+                Kami tidak hanya menampilkan angka. Setiap tampilan membantu Anda memahami apa yang
+                dianggarkan, bagaimana posisinya, dan sejauh mana data dapat dipercaya.
+              </p>
+              <Link className="text-link" href="/sumber-data">
+                Lihat catatan sumber data
+                <ArrowRight size={17} aria-hidden="true" />
               </Link>
-            ))}
-          </div>
-        </section>
+            </div>
 
-        <section className="card process">
-          <div className="section-head">
-            <h2>Dari data resmi menjadi informasi yang dapat dibandingkan</h2>
-          </div>
-          <div className="process-grid">
-            <div className="process-step">
-              <span className="num">1</span>
-              <b>Data resmi</b>
-              <span>
-                Berkas APBD dari Direktorat Jenderal Perimbangan Keuangan (DJPK), Kementerian
-                Keuangan, yang mencakup seluruh pemerintah daerah.
-              </span>
+            <div className="why-grid">
+              {benefits.map(({ icon: Icon, title, desc, color }) => (
+                <div className="card why-card" key={title}>
+                  <span className="why-icon" style={{ background: color }}>
+                    <Icon aria-hidden="true" />
+                  </span>
+                  <b>{title}</b>
+                  <p>{desc}</p>
+                </div>
+              ))}
             </div>
-            <div className="process-step">
-              <span className="num">2</span>
-              <b>Pengolahan</b>
-              <span>
-                Data diseragamkan, kemudian dihitung porsi, nilai tengah, dan peringkat untuk setiap
-                kabupaten di seluruh Indonesia.
-              </span>
-            </div>
-            <div className="process-step">
-              <span className="num">3</span>
-              <b>Penyajian</b>
-              <span>
-                Hasil ditampilkan untuk daerah yang dipilih, disertai sumber dan batasan data yang
-                dinyatakan secara terbuka.
-              </span>
-            </div>
-          </div>
-        </section>
+          </section>
+        </Reveal>
 
-        <section className="cta">
-          <div>
-            <h2>Telusuri anggaran daerah di seluruh Indonesia</h2>
-            <p>
-              Mulai dari bidang yang menerima anggaran terbesar, lalu bandingkan posisinya dengan
-              kabupaten lain di seluruh Indonesia.
-            </p>
-          </div>
-          <Link className="btn btn-w" href="/anggaran" style={{ minHeight: 54, fontSize: 16 }}>
-            Mulai telusuri
-            <ArrowRight size={18} aria-hidden="true" />
-          </Link>
-        </section>
+        <Reveal>
+          <section className="faq-section" id="faq" aria-labelledby="faq-title">
+            <div className="faq-copy">
+              <span className="eyebrow">Pertanyaan umum</span>
+              <h2 id="faq-title">Hal yang sering ditanyakan</h2>
+              <p>
+                Belum menemukan jawabannya? Catatan sumber dan pengolahan data menjelaskan batasan
+                setiap angka secara lebih rinci.
+              </p>
+              <Link className="text-link" href="/sumber-data">
+                Baca catatan data
+                <ArrowRight size={17} aria-hidden="true" />
+              </Link>
+            </div>
+            <FaqAccordion />
+          </section>
+        </Reveal>
+
+        <Reveal>
+          <section className="cta final-cta">
+            <div className="cta-copy">
+              <span className="cta-eyebrow">Mulai sekarang</span>
+              <h2>Pahami anggaran daerah dalam hitungan menit.</h2>
+              <p>
+                Telusuri prioritas belanja {COVERAGE.kabupatenKota} kabupaten/kota dan bandingkan
+                posisinya dengan daerah lain.
+              </p>
+              <div className="cta-actions">
+                <Link className="btn btn-w" href="/anggaran" style={{ minHeight: 52, fontSize: 15 }}>
+                  Telusuri anggaran
+                  <ArrowRight size={18} aria-hidden="true" />
+                </Link>
+                <Link className="btn btn-ghost" href="/sumber-data">
+                  Lihat sumber data
+                </Link>
+              </div>
+              <span className="cta-note">
+                <CheckCircle2 size={16} aria-hidden="true" />
+                Gratis, tanpa registrasi.
+              </span>
+            </div>
+
+            <div className="cta-art" aria-hidden="true">
+              <span className="cta-ring" />
+              <span className="cta-orb">
+                <TrendingUp />
+              </span>
+              <div className="cta-float">
+                <b>{COVERAGE.kabupatenKota}</b>
+                <span>kabupaten/kota</span>
+              </div>
+              <div className="cta-float cta-float-alt">
+                <b>{COVERAGE.barisBelanja.toLocaleString("id-ID")}</b>
+                <span>baris data</span>
+              </div>
+            </div>
+          </section>
+        </Reveal>
       </main>
 
       <Footer />

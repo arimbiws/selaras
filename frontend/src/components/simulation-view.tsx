@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { FlaskConical, Users, Wallet } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { PageShell } from "@/components/page-shell";
+import type { BudgetBundle } from "@backend/types";
 import { JENIS, JENIS_COLORS } from "@/lib/demo-data";
 
 const rupiah = (value: number) =>
@@ -41,12 +42,17 @@ function SliceTip({
   );
 }
 
-export function SimulationView() {
-  const [budget, setBudget] = useState("1652760000000");
+export function SimulationView({ bundle }: { bundle: BudgetBundle }) {
+  const frame = bundle.pagu;
+  const baselineTotal = frame?.available
+    ? Math.round(frame.totalMiliar * 1_000_000_000)
+    : 0;
+  const baselineShares = frame?.jenis.map((item) => Math.round(item.share)) ?? [];
+  const [budget, setBudget] = useState(baselineTotal ? String(baselineTotal) : "");
   const [population, setPopulation] = useState("600000");
-  const [employee, setEmployee] = useState(45);
-  const [goods, setGoods] = useState(24);
-  const [capital, setCapital] = useState(12);
+  const [employee, setEmployee] = useState(baselineShares[0] ?? 45);
+  const [goods, setGoods] = useState(baselineShares[1] ?? 24);
+  const [capital, setCapital] = useState(baselineShares[2] ?? 12);
 
   const other = 100 - employee - goods - capital;
   const total = Number(budget) || 0;
@@ -80,19 +86,25 @@ export function SimulationView() {
   ];
 
   return (
-    <PageShell active="/simulasi" title="Simulasi">
+    <PageShell active="/simulasi">
       <main className="page">
         <section className="page-head">
           <div>
             <h1>Simulasi Alokasi</h1>
             <p className="page-sub">
               Ubah porsi jenis belanja dan lihat dampaknya terhadap nominal alokasi serta belanja
-              per penduduk. Nilai awal memakai contoh Kabupaten Pacitan dan dapat diganti untuk
-              daerah mana pun.
+              per penduduk.{" "}
+              {frame?.available
+                ? `Nilai awal memakai ${frame.region.nama} APBD ${frame.tahun} dari ${
+                    frame.source === "supabase" ? "Supabase" : "data contoh"
+                  }.`
+                : "Baseline daerah belum tersedia; masukkan total anggaran secara manual."}
             </p>
           </div>
           <div className="page-actions">
-            <span className="chip c-mid">Simulasi mandiri</span>
+            <span className={`chip ${frame?.source === "supabase" ? "c-ok" : "c-mid"}`}>
+              {frame?.source === "supabase" ? "Baseline Supabase" : "Simulasi mandiri"}
+            </span>
           </div>
         </section>
 
@@ -111,6 +123,18 @@ export function SimulationView() {
             </div>
 
             <div className="pn-b" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              <div className="note" style={{ background: "var(--sub)" }}>
+                <span>
+                  Baseline:{" "}
+                  <b>
+                    {frame?.available
+                      ? `${frame.region.nama}, APBD ${frame.tahun}`
+                      : "belum tersedia"}
+                  </b>
+                  . Simulasi tidak menyimpan perubahan dan tidak mengubah data Supabase.
+                </span>
+              </div>
+
               <label className="fld">
                 <span className="lb">Total anggaran (rupiah)</span>
                 <input
@@ -230,6 +254,8 @@ export function SimulationView() {
                         data={slices}
                         dataKey="value"
                         nameKey="name"
+                        cx="50%"
+                        cy="50%"
                         innerRadius={64}
                         outerRadius={96}
                         paddingAngle={2}
@@ -244,20 +270,10 @@ export function SimulationView() {
                       <Tooltip content={<SliceTip />} />
                     </PieChart>
                   </ResponsiveContainer>
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      display: "grid",
-                      placeItems: "center",
-                      pointerEvents: "none",
-                    }}
-                  >
-                    <div style={{ textAlign: "center", width: 118 }}>
-                      <span style={{ fontSize: 11.5, color: "var(--ink2)" }}>Total</span>
-                      <b style={{ display: "block", fontSize: 16, lineHeight: 1.25 }}>
-                        {compactRupiah(total)}
-                      </b>
+                  <div className="donut-center" aria-hidden="true">
+                    <div className="donut-center-inner">
+                      <span>Total</span>
+                      <b>{compactRupiah(total)}</b>
                     </div>
                   </div>
                 </div>
@@ -318,8 +334,9 @@ export function SimulationView() {
 
         <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink2)" }}>
           Simulasi ini menggunakan asumsi porsi jenis belanja dan bukan proyeksi resmi. Belanja per
-          penduduk dihitung dari total anggaran dibagi jumlah penduduk yang diisi. Angka awal merupakan
-          contoh Kabupaten Pacitan; masukkan nilai daerah lain untuk skenario berbeda.
+          penduduk dihitung dari total anggaran dibagi jumlah penduduk yang diisi. Nilai awal
+          mengikuti data APBD terbaru yang tersedia; jumlah penduduk tetap diisi manual karena
+          indikator BPS belum dimuat.
         </p>
       </main>
     </PageShell>

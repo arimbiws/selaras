@@ -7,14 +7,16 @@ export function Footer() {
     <footer className="l-foot">
       <div className="foot-main">
         <div className="foot-brand">
-          <Link href="/" className="logo" aria-label="SELARAS, beranda">
-            <Image
-              src="/logo.png"
-              alt=""
-              width={150}
-              height={40}
-              className="h-9 w-auto object-contain"
-            />
+          <Link href="/" className="logo foot-logo" aria-label="SELARAS, beranda">
+            <span className="logo-badge">
+              <Image
+                src="/logo.png"
+                alt=""
+                width={150}
+                height={40}
+                className="logo-img"
+              />
+            </span>
             <span className="brand-word">SELARAS</span>
           </Link>
           <p className="foot-desc">
