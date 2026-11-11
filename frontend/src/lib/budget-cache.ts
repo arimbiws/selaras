@@ -4,6 +4,6 @@ import { getBudgetBundle } from "@backend/repository";
 export const getCachedBudget = unstable_cache(
   async (kodeDjpk: string, tahun: number) =>
     getBudgetBundle({ kodeDjpk, tahun: tahun || undefined }),
-  ["budget-bundle-v2"],
+  ["budget-bundle-v3"],
   { revalidate: 120 },
 );

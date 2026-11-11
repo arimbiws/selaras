@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { AlertCircle, CheckCircle2, Database } from "lucide-react";
+import { AlertCircle, CheckCircle2, ExternalLink } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
+import { CountUp } from "@/components/landing/count-up";
 import { getDatasetSummary } from "@backend/repository";
 import { COVERAGE } from "@/lib/demo-data";
 
@@ -22,59 +23,84 @@ export default async function SumberDataPage() {
     .filter((row) => row.realisasi)
     .map((row) => row.tahun);
   const formatYears = (years: number[]) => (years.length ? years.join(", ") : "belum tersedia");
-  const metadataYears = new Set(summary.sources.map((source) => source.tahun));
-  const yearsWithoutMetadata = summary.tahun
-    .filter((row) => !metadataYears.has(row.tahun))
-    .map((row) => row.tahun);
+  const metadataByKey = new Map<string, string[]>();
+  for (const source of summary.sources) {
+    const key = `${source.tahun}:${source.status}`;
+    metadataByKey.set(key, [...(metadataByKey.get(key) ?? []), source.sumberFile]);
+  }
+
+  const missingMetadata = summary.tahun.flatMap((row) => {
+    const missing: Array<{ tahun: number; status: "pagu" | "realisasi" }> = [];
+    if (row.pagu && !metadataByKey.has(`${row.tahun}:pagu`)) {
+      missing.push({ tahun: row.tahun, status: "pagu" });
+    }
+    if (row.realisasi && !metadataByKey.has(`${row.tahun}:realisasi`)) {
+      missing.push({ tahun: row.tahun, status: "realisasi" });
+    }
+    return missing;
+  });
+
+  const duplicateMetadata = Array.from(metadataByKey.entries())
+    .filter(([, files]) => files.length > 1)
+    .map(([key, files]) => {
+      const [tahun, status] = key.split(":");
+      return {
+        tahun: Number(tahun),
+        status: status as "pagu" | "realisasi",
+        files,
+      };
+    });
+
+  const formatMissingMetadata = () =>
+    missingMetadata.map((item) => `${item.tahun} ${item.status}`).join(", ");
+  const incompleteMetadata = summary.sources.filter(
+    (source) => !source.sheetDigunakan || !source.tanggalPublikasi,
+  );
 
   const sources = [
     {
       name: "Anggaran belanja per fungsi dan jenis",
       org: "DJPK Kementerian Keuangan",
-      status: live ? "Dimuat" : "Data contoh",
-      ok: live,
       detail: `Pagu tersedia: ${formatYears(paguYears)}. ${summary.totalBaris.toLocaleString(
         "id-ID",
       )} baris untuk ${summary.totalDaerah} kode daerah DJPK.`,
       url: "https://djpk.kemenkeu.go.id/?p=5412",
+      cta: "Buka portal DJPK",
     },
     {
       name: "Realisasi belanja per fungsi",
       org: "DJPK Kementerian Keuangan",
-      status: realisasiYears.length ? "Sebagian" : "Belum dimuat",
-      ok: false,
       detail: `Realisasi tersedia: ${formatYears(
         realisasiYears,
       )}. Tahun tanpa realisasi tidak diisi sebagai nol.`,
       url: "https://djpk.kemenkeu.go.id/?p=5412",
+      cta: "Periksa data realisasi",
     },
     {
       name: "Referensi wilayah Kemendagri",
       org: "Kementerian Dalam Negeri",
-      status: "Dimuat",
-      ok: true,
       detail:
         "38 provinsi, 514 kabupaten/kota, 7.285 kecamatan, dan 83.762 desa/kelurahan. Kode BPS belum diisi.",
       url: "https://kemendagri.go.id",
+      cta: "Buka portal Kemendagri",
     },
     {
       name: "Indikator kebutuhan wilayah",
       org: "Badan Pusat Statistik",
-      status: "Belum dimuat",
-      ok: false,
       detail:
         "Jumlah penduduk, kemiskinan, fasilitas pendidikan dan kesehatan perlu diimpor dan divalidasi.",
       url: "https://www.bps.go.id",
+      cta: "Buka portal BPS",
     },
   ];
 
   const coverage = [
-    { value: String(COVERAGE.kabupatenKota), label: "kabupaten/kota" },
-    { value: String(COVERAGE.provinsi), label: "provinsi" },
-    { value: String(COVERAGE.kecamatan.toLocaleString("id-ID")), label: "kecamatan" },
-    { value: String(COVERAGE.desa.toLocaleString("id-ID")), label: "desa/kelurahan" },
-    { value: summary.totalBaris.toLocaleString("id-ID"), label: "baris belanja" },
-    { value: String(summary.totalDaerah), label: "kode daerah" },
+    { value: COVERAGE.kabupatenKota, label: "kabupaten/kota" },
+    { value: COVERAGE.provinsi, label: "provinsi" },
+    { value: COVERAGE.kecamatan, label: "kecamatan" },
+    { value: COVERAGE.desa, label: "desa/kelurahan" },
+    { value: summary.totalBaris, label: "baris belanja" },
+    { value: summary.totalDaerah, label: "kode daerah" },
   ];
 
   return (
@@ -89,91 +115,113 @@ export default async function SumberDataPage() {
           </div>
           <div className="page-actions">
             <span className={`chip ${live ? "c-ok" : "c-mid"}`}>
-              {live ? "Supabase" : "Data contoh"}
+              {live ? "Data resmi" : "Data contoh"}
             </span>
           </div>
         </section>
 
-        <section
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 10,
-            background: "var(--sub)",
-            border: "1px solid var(--line)",
-            borderRadius: 14,
-            padding: "14px 16px",
-            fontSize: 13.5,
-            color: "var(--ink2)",
-          }}
-        >
-          <AlertCircle size={18} aria-hidden="true" style={{ flex: "0 0 18px", marginTop: 1 }} />
-          <span>
-            {live
-              ? "Angka pada halaman ini dibaca dari Supabase. Tahun tanpa data ditandai belum tersedia; nilai kosong tidak diubah menjadi nol."
-              : "Kredensial Supabase belum aktif, sehingga tampilan memakai data contoh Kabupaten Pacitan. Isi URL dan publishable key di .env untuk membaca data dinamis."}
-          </span>
-        </section>
-
-        <section
-          aria-label="Cakupan wilayah"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-            gap: 14,
-          }}
-        >
-          {coverage.map((item) => (
-            <div
-              key={item.label}
-              style={{
-                background: "var(--soft)",
-                borderRadius: 16,
-                padding: "18px 20px",
-              }}
-            >
-              <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em" }}>
-                {item.value}
-              </div>
-              <div style={{ fontSize: 13, color: "var(--ink2)" }}>{item.label}</div>
+        <section className="pn">
+          <div className="pn-h">
+            <div>
+              <h2 className="pn-t">Ketersediaan Data per Tahun</h2>
+              <span className="pn-s">
+                Tahun tanpa berkas sumber ditandai belum tersedia, bukan angka nol.
+              </span>
             </div>
-          ))}
+            <span className={`chip ${paguYears.length ? "c-ok" : "c-mid"}`}>
+              {paguYears.length ? `${paguYears.length} tahun pagu` : "Belum ada pagu"}
+            </span>
+          </div>
+          <div className="pn-b" style={{ paddingTop: 8 }}>
+            <div className="table-wrap">
+              <div style={{ minWidth: 660 }}>
+                <div
+                  className="tr"
+                  style={{
+                    gridTemplateColumns:
+                      "minmax(0,0.5fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.6fr)",
+                  }}
+                >
+                  <span className="th">Tahun</span>
+                  <span className="th">Pagu</span>
+                  <span className="th">Realisasi</span>
+                  <span className="th">Catatan</span>
+                </div>
+                {summary.tahun.map((row) => (
+                  <div
+                    key={row.tahun}
+                    className="tr"
+                    style={{
+                      gridTemplateColumns:
+                        "minmax(0,0.5fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.6fr)",
+                    }}
+                  >
+                    <b>{row.tahun}</b>
+                    <span>
+                      <span className={`chip ${row.pagu ? "c-ok" : "c-wait"}`}>
+                        {row.pagu ? "Tersedia" : "Belum ada"}
+                      </span>
+                    </span>
+                    <span>
+                      <span className={`chip ${row.realisasi ? "c-ok" : "c-wait"}`}>
+                        {row.realisasi ? "Tersedia" : "Belum ada"}
+                      </span>
+                    </span>
+                    <span style={{ color: "var(--ink2)" }}>{row.catatan ?? "—"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </section>
 
-        <section
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-            gap: 14,
-          }}
-        >
-          {sources.map((source) => (
-            <article className="src" key={source.name}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 8,
-                  alignItems: "center",
-                }}
-              >
+        <section className="coverage-section" aria-label="Cakupan wilayah">
+          <div className="coverage-head">
+            <div>
+              <h2 className="section-title">Cakupan Data</h2>
+              <p>
+                Jumlah wilayah referensi dan baris belanja yang saat ini dapat dibaca SELARAS.
+              </p>
+            </div>
+            <span className={`chip ${live ? "c-ok" : "c-mid"}`}>
+              {live ? "Data resmi" : "Data contoh"}
+            </span>
+          </div>
+          <div className="coverage-grid">
+            {coverage.map((item) => (
+              <div className="coverage-card" key={item.label}>
+                <div className="coverage-value">
+                  <CountUp to={item.value} />
+                </div>
+                <div className="coverage-label">{item.label}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="source-section">
+          <div className="source-head">
+            <div>
+              <h2 className="section-title">Sumber Rujukan</h2>
+              <p>
+                Empat rujukan utama yang membentuk data SELARAS. Tautan mengarah ke portal resmi
+                masing-masing lembaga.
+              </p>
+            </div>
+          </div>
+          <div className="source-grid">
+            {sources.map((source) => (
+              <article className="src source-card" key={source.name}>
+                <span className="source-org">{source.org}</span>
                 <b>{source.name}</b>
-                <span className={`chip ${source.ok ? "c-ok" : "c-lo"}`}>{source.status}</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                {source.ok ? (
-                  <CheckCircle2 size={15} aria-hidden="true" style={{ color: "#116a43" }} />
-                ) : (
-                  <Database size={15} aria-hidden="true" style={{ color: "var(--accent)" }} />
-                )}
-                <span style={{ fontWeight: 600, color: "var(--ink)" }}>{source.org}</span>
-              </div>
-              <span>{source.detail}</span>
-              <a href={source.url} target="_blank" rel="noreferrer">
-                Buka sumber
-              </a>
-            </article>
-          ))}
+                <span>{source.detail}</span>
+                <a href={source.url} target="_blank" rel="noreferrer">
+                  {source.cta}
+                  <ExternalLink size={14} aria-hidden="true" />
+                </a>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section className="pn">
@@ -246,72 +294,48 @@ export default async function SumberDataPage() {
               </div>
             )}
 
-            {yearsWithoutMetadata.length ? (
-              <div
-                style={{
-                  marginTop: 14,
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 8,
-                  fontSize: 13,
-                  color: "var(--ink2)",
-                }}
-              >
-                <AlertCircle size={16} aria-hidden="true" style={{ flex: "0 0 16px", marginTop: 1 }} />
+            {missingMetadata.length ? (
+              <div className="data-warning">
+                <AlertCircle size={16} aria-hidden="true" />
                 <span>
-                  Metadata untuk {formatYears(yearsWithoutMetadata)} belum tersedia di Supabase.
-                  Paket CSV pembaruan sudah tersedia di repositori dan menunggu persetujuan impor.
+                  Data belanja tersedia tanpa metadata sumber untuk: {formatMissingMetadata()}.
+                </span>
+              </div>
+            ) : live && summary.tahun.length ? (
+              <div className="data-warning ok">
+                <CheckCircle2 size={16} aria-hidden="true" />
+                <span>
+                  Semua tahun dan status yang memiliki data belanja sudah memiliki metadata sumber.
                 </span>
               </div>
             ) : null}
-          </div>
-        </section>
 
-        <section className="pn">
-          <div className="pn-h">
-            <div>
-              <h2 className="pn-t">Ketersediaan Data per Tahun</h2>
-              <span className="pn-s">
-                Tahun tanpa berkas sumber tidak ditampilkan sebagai angka nol.
-              </span>
-            </div>
-          </div>
-          <div className="pn-b" style={{ paddingTop: 8 }}>
-            <div className="table-wrap">
-              <div style={{ minWidth: 660 }}>
-                <div
-                  className="tr"
-                  style={{
-                    gridTemplateColumns:
-                      "minmax(0,0.5fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.6fr)",
-                  }}
-                >
-                  <span className="th">Tahun</span>
-                  <span className="th">Pagu</span>
-                  <span className="th">Realisasi</span>
-                  <span className="th">Catatan</span>
-                </div>
-                {summary.tahun.map((row) => (
-                  <div
-                    key={row.tahun}
-                    className="tr"
-                    style={{
-                      gridTemplateColumns:
-                        "minmax(0,0.5fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.6fr)",
-                    }}
-                  >
-                    <b>{row.tahun}</b>
-                    <span style={{ color: "var(--ink2)" }}>
-                      {row.pagu ? "Tersedia" : "Belum ada"}
-                    </span>
-                    <span style={{ color: "var(--ink2)" }}>
-                      {row.realisasi ? "Tersedia" : "Belum ada"}
-                    </span>
-                    <span style={{ color: "var(--ink2)" }}>{row.catatan ?? "—"}</span>
-                  </div>
-                ))}
+            {duplicateMetadata.length ? (
+              <div className="data-warning">
+                <AlertCircle size={16} aria-hidden="true" />
+                <span>
+                  Metadata ganda untuk{" "}
+                  {duplicateMetadata
+                    .map((item) => `${item.tahun} ${item.status} (${item.files.length} berkas)`)
+                    .join(", ")}
+                  . Data fakta tetap dibaca dari satu sumber; duplikat perlu dirapikan agar tidak
+                  ambigu.
+                </span>
               </div>
-            </div>
+            ) : null}
+
+            {incompleteMetadata.length ? (
+              <div className="data-warning">
+                <AlertCircle size={16} aria-hidden="true" />
+                <span>
+                  Sheet atau tanggal publikasi belum diisi untuk{" "}
+                  {incompleteMetadata
+                    .map((item) => `${item.tahun} ${item.status}`)
+                    .join(", ")}
+                  .
+                </span>
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -323,17 +347,7 @@ export default async function SumberDataPage() {
             </div>
           </div>
           <div className="pn-b">
-            <ol
-              style={{
-                margin: 0,
-                paddingLeft: 22,
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-                fontSize: 14,
-                lineHeight: 1.6,
-              }}
-            >
+            <ol className="process-list">
               {steps.map((step) => (
                 <li key={step}>{step}</li>
               ))}

@@ -10,8 +10,10 @@ import {
   FlaskConical,
   Landmark,
   LayoutDashboard,
+  Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  X,
 } from "lucide-react";
 
 const items = [
@@ -28,10 +30,15 @@ export function AppSidebar({ active }: { active?: string }) {
   const pathname = usePathname();
   const current = active ?? pathname;
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     setCollapsed(window.localStorage.getItem(STORAGE_KEY) === "1");
   }, []);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   function toggle() {
     setCollapsed((value) => {
@@ -42,7 +49,9 @@ export function AppSidebar({ active }: { active?: string }) {
   }
 
   return (
-    <aside className={`side${collapsed ? " collapsed" : ""}`}>
+    <aside
+      className={`side${collapsed ? " collapsed" : ""}${mobileOpen ? " mobile-open" : ""}`}
+    >
       <div className="side-top">
         <Link className="logo" href="/" aria-label="SELARAS, kembali ke beranda">
           <Image
@@ -55,25 +64,37 @@ export function AppSidebar({ active }: { active?: string }) {
           />
           <span className="brand-word">SELARAS</span>
         </Link>
-        <button
-          type="button"
-          className="side-toggle"
-          onClick={toggle}
-          aria-label={collapsed ? "Lebarkan menu" : "Sematkan menu"}
-          aria-expanded={!collapsed}
-          title={collapsed ? "Lebarkan menu" : "Sematkan menu"}
-        >
-          {collapsed ? (
-            <PanelLeftOpen size={17} aria-hidden="true" />
-          ) : (
-            <PanelLeftClose size={17} aria-hidden="true" />
-          )}
-        </button>
+        <div className="side-actions">
+          <button
+            type="button"
+            className="side-toggle"
+            onClick={toggle}
+            aria-label={collapsed ? "Lebarkan menu" : "Sematkan menu"}
+            aria-expanded={!collapsed}
+            title={collapsed ? "Lebarkan menu" : "Sematkan menu"}
+          >
+            {collapsed ? (
+              <PanelLeftOpen size={17} aria-hidden="true" />
+            ) : (
+              <PanelLeftClose size={17} aria-hidden="true" />
+            )}
+          </button>
+          <button
+            type="button"
+            className="side-mobile-toggle"
+            onClick={() => setMobileOpen((value) => !value)}
+            aria-label={mobileOpen ? "Tutup menu" : "Buka menu"}
+            aria-expanded={mobileOpen}
+            aria-controls="selaras-mobile-nav"
+          >
+            {mobileOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
+          </button>
+        </div>
       </div>
 
       <div className="side-rule" aria-hidden="true" />
 
-      <nav className="nav" aria-label="Menu utama">
+      <nav className="nav" id="selaras-mobile-nav" aria-label="Menu utama">
         {items.map(({ label, href, icon: Icon }) => (
           <Link
             key={href}

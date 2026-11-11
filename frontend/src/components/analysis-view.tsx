@@ -2,7 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, ArrowDown, ArrowUp, Minus, Sparkles } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  CheckCircle2,
+  ExternalLink,
+  Lightbulb,
+  Minus,
+  Sparkles,
+  Target,
+} from "lucide-react";
 import {
   Cell,
   Pie,
@@ -85,37 +94,35 @@ function SliceTip({
 const sources = [
   {
     name: "Anggaran belanja per fungsi dan jenis",
-    status: "Sebagian tahun",
-    ok: true,
+    org: "DJPK Kementerian Keuangan",
     detail:
-      "DJPK Kementerian Keuangan. Pagu per fungsi dan jenis dibaca dari Supabase; paket pembaruan 2022–2026 tersedia sebagai CSV.",
+      "Pagu per fungsi dan jenis 2020–2026, digunakan untuk menghitung porsi dan peringkat daerah.",
     url: "https://djpk.kemenkeu.go.id/?p=5412",
-    cta: "Lihat dataset asli",
+    cta: "Buka dataset DJPK",
   },
   {
     name: "Realisasi belanja per fungsi",
-    status: "Sebagian",
-    ok: false,
+    org: "DJPK Kementerian Keuangan",
     detail:
-      "DJPK Kementerian Keuangan. Realisasi yang tersedia dibaca dari view budget_vs_actual; tahun tanpa realisasi tidak diisi nol.",
+      "Realisasi ditampilkan hanya untuk tahun yang tersedia. Tahun tanpa realisasi tidak diisi nol.",
     url: "https://djpk.kemenkeu.go.id/?p=5412",
-    cta: "Lihat dataset asli",
+    cta: "Buka dataset DJPK",
   },
   {
-    name: "Jumlah penduduk",
-    status: "Belum dimuat",
-    ok: false,
-    detail: "Badan Pusat Statistik (BPS), publikasi tingkat kabupaten.",
-    url: "https://www.bps.go.id",
-    cta: "Situs BPS",
+    name: "Referensi wilayah",
+    org: "Kemendagri dan BPS",
+    detail:
+      "Kode dan nama kabupaten/kota digunakan untuk menyamakan pembanding pada tingkat nasional dan provinsi.",
+    url: "https://kemendagri.go.id",
+    cta: "Buka referensi wilayah",
   },
   {
-    name: "Tingkat kemiskinan",
-    status: "Belum dimuat",
-    ok: false,
-    detail: "Badan Pusat Statistik (BPS), data kemiskinan kabupaten dan kota.",
+    name: "Indikator kebutuhan wilayah",
+    org: "Badan Pusat Statistik",
+    detail:
+      "Penduduk, kemiskinan, fasilitas, dan luas wilayah menjadi konteks tambahan saat indikator tersedia.",
     url: "https://www.bps.go.id",
-    cta: "Situs BPS",
+    cta: "Buka situs BPS",
   },
 ];
 
@@ -135,7 +142,12 @@ export function AnalysisView({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [flash, setFlash] = useState(false);
+  const [peerCode, setPeerCode] = useState("");
+  const [peerSnapshot, setPeerSnapshot] = useState<AnalysisSnapshot | null>(null);
+  const [peerLoading, setPeerLoading] = useState(false);
+  const [peerError, setPeerError] = useState("");
   const cacheRef = useRef(new Map<string, AnalysisSnapshot>());
+  const peerCacheRef = useRef(new Map<string, AnalysisSnapshot>());
   const requestRef = useRef(0);
 
   useEffect(() => {
@@ -143,6 +155,12 @@ export function AnalysisView({
     setRegionCode(initialSnapshot.region.kodeDjpk);
     setYear(initialSnapshot.tahun);
   }, [initialSnapshot]);
+
+  useEffect(() => {
+    setPeerCode("");
+    setPeerSnapshot(null);
+    setPeerError("");
+  }, [year]);
 
   useEffect(() => {
     if (!flash) return;
@@ -203,6 +221,47 @@ export function AnalysisView({
     })();
   };
 
+  const loadPeer = (nextCode: string) => {
+    setPeerCode(nextCode);
+    setPeerError("");
+    if (!nextCode) {
+      setPeerSnapshot(null);
+      return;
+    }
+
+    const key = `${nextCode}:${year}`;
+    const cached = peerCacheRef.current.get(key);
+    if (cached) {
+      setPeerSnapshot(cached);
+      setPeerLoading(false);
+      return;
+    }
+
+    setPeerLoading(true);
+    setPeerSnapshot(null);
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/analysis?kode=${encodeURIComponent(nextCode)}&tahun=${year}`,
+          { cache: "no-store" },
+        );
+        if (!response.ok) {
+          const payload = (await response.json()) as { error?: string };
+          throw new Error(payload.error ?? "Data pembanding tidak dapat dimuat.");
+        }
+        const next = (await response.json()) as AnalysisSnapshot;
+        peerCacheRef.current.set(key, next);
+        setPeerSnapshot(next);
+      } catch (caught) {
+        setPeerError(
+          caught instanceof Error ? caught.message : "Data pembanding tidak dapat dimuat.",
+        );
+      } finally {
+        setPeerLoading(false);
+      }
+    })();
+  };
+
   const normalizedQuery = regionQuery.trim().toLocaleLowerCase("id-ID");
   const currentRegion =
     regions.find((region) => region.kodeDjpk === regionCode) ?? snapshot.region;
@@ -214,6 +273,9 @@ export function AnalysisView({
   )
     ? filteredRegions
     : [currentRegion, ...filteredRegions];
+  const peerOptions = (normalizedQuery ? filteredRegions : regions).filter(
+    (region) => region.kodeDjpk !== regionCode,
+  );
   const baseYears =
     snapshot.years.length > 0
       ? snapshot.years
@@ -291,18 +353,43 @@ export function AnalysisView({
     .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
     .slice(0, 3);
 
-  const insights = gaps.map(
-    (gap) =>
-      `${gap.name}: ${fmt1(gap.share)}% dari total belanja, ${signed(gap.delta)} terhadap nilai tengah (${fmt1(gap.median)}%), peringkat ke-${gap.rank} dari ${comparisonCount}.`,
-  );
+  const peerComparison =
+    peerSnapshot?.available
+      ? snapshot.functions
+          .map((current) => {
+            const peer = peerSnapshot.functions.find((item) => item.kode === current.kode);
+            if (!peer) return null;
+            return {
+              name: current.nama,
+              current: current.share,
+              peer: peer.share,
+              delta: current.share - peer.share,
+            };
+          })
+          .filter((row): row is NonNullable<typeof row> => Boolean(row))
+          .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+          .slice(0, 4)
+      : [];
 
-  const questions = gaps.map((gap, index) => ({
-    index: String(index + 1),
-    text:
-      gap.delta >= 0
-        ? `Porsi ${gap.name} sebesar ${fmt1(gap.share)}% berada ${fmt1(Math.abs(gap.delta))} poin di atas nilai tengah. Apa kebijakan atau kebutuhan daerah yang mendasarinya, dan apakah hasilnya terukur?`
-        : `Porsi ${gap.name} sebesar ${fmt1(gap.share)}% berada ${fmt1(Math.abs(gap.delta))} poin di bawah nilai tengah. Apakah urusan ini ditangani pihak lain, atau terdapat kebutuhan yang belum terpenuhi?`,
-  }));
+  const questions = [
+    ...gaps.map((gap, index) => ({
+      index: String(index + 1),
+      text:
+        gap.delta >= 0
+          ? `Porsi ${gap.name} sebesar ${fmt1(gap.share)}% berada ${fmt1(Math.abs(gap.delta))} poin di atas nilai tengah. Apa kebijakan atau kebutuhan daerah yang mendasarinya, dan bagaimana hasilnya diukur?`
+          : `Porsi ${gap.name} sebesar ${fmt1(gap.share)}% berada ${fmt1(Math.abs(gap.delta))} poin di bawah nilai tengah. Apakah urusan ini ditangani pihak lain, atau terdapat kebutuhan yang belum terpenuhi?`,
+    })),
+    {
+      index: String(gaps.length + 1),
+      text:
+        "Bagaimana capaian layanan pada bidang dengan porsi tertinggi dibandingkan target daerah? Apakah anggaran yang besar sudah diikuti hasil yang terukur?",
+    },
+    {
+      index: String(gaps.length + 2),
+      text:
+        "Apakah dokumen perencanaan dan laporan realisasi dapat diakses publik, sehingga masyarakat dapat menelusuri perubahan alokasi sepanjang tahun?",
+    },
+  ];
 
   const radarData: RadarPoint[] = rows.map((row) => ({
     subject: isFungsi ? shortName(row.kode, row.name) : JENIS[Number(row.kode) - 51] ?? row.name,
@@ -339,30 +426,30 @@ export function AnalysisView({
       <div style={{ maxWidth: 720 }}>
         <h1>Analisis Kebutuhan</h1>
         <p className="page-sub">
-          Porsi anggaran {snapshot.region.nama} tahun {snapshot.tahun} dibandingkan dengan{" "}
-          {snapshot.available ? comparisonLabel : "daerah lain"} sebagai dasar untuk menilai apakah
-          alokasi sejalan dengan kebutuhan wilayah.
+          Posisi porsi belanja {snapshot.region.nama} tahun {snapshot.tahun} dibandingkan daerah
+          sejenis. Gunakan temuan ini untuk melihat bidang yang menonjol dan menyusun pertanyaan
+          lanjutan.
         </p>
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: "14px 20px" }}>
         <div className="fld">
           <label className="lb" htmlFor="a-cari-daerah">
-            Cari daerah
+            Cari wilayah
           </label>
           <input
             className="sel"
             id="a-cari-daerah"
             value={regionQuery}
             onChange={(event) => setRegionQuery(event.target.value)}
-            placeholder="Nama kabupaten/kota"
+            placeholder="Ketik nama kabupaten/kota"
             style={{ minWidth: 200 }}
           />
         </div>
 
         <div className="fld">
           <label className="lb" htmlFor="a-daerah">
-            Daerah
+            Pilih kabupaten/kota
           </label>
           <select
             className="sel"
@@ -418,6 +505,26 @@ export function AnalysisView({
               {snapshot.provinceName ?? "Provinsi"} ({snapshot.comparisonCountProvinsi ?? 0})
             </button>
           </div>
+        </div>
+
+        <div className="fld">
+          <label className="lb" htmlFor="a-pembanding">
+            Pilih daerah pembanding
+          </label>
+          <select
+            className="sel"
+            id="a-pembanding"
+            value={peerCode}
+            onChange={(event) => loadPeer(event.target.value)}
+            style={{ minWidth: 210 }}
+          >
+            <option value="">Pilih pembanding (opsional)</option>
+            {peerOptions.map((region) => (
+              <option value={region.kodeDjpk} key={region.kodeDjpk}>
+                {region.nama}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="fld">
@@ -493,48 +600,40 @@ export function AnalysisView({
 
       <div className="status-row">
         <span className={`chip ${snapshot.source === "supabase" ? "c-ok" : "c-mid"}`}>
-          {snapshot.source === "supabase" ? "Supabase" : "Data contoh"}
+          {snapshot.source === "supabase" ? "Data resmi DJPK" : "Data contoh"}
         </span>
         {snapshot.note ? <span className="chip c-wait">{snapshot.note}</span> : null}
         {error ? <span className="chip c-lo">{error}</span> : null}
       </div>
 
-      <section
-        style={{
-          background: "var(--soft)",
-          borderRadius: 18,
-          padding: "22px 26px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <section className="findings">
+        <div className="findings-head">
           <span className="ico" style={{ background: "var(--brand)" }}>
             <Sparkles aria-hidden="true" />
           </span>
-          <b style={{ fontSize: 18 }}>Temuan utama</b>
+          <div>
+            <b>Temuan utama</b>
+            <p>
+              Tiga bidang dengan selisih terbesar terhadap nilai tengah pembanding. Selisih bukan
+              penilaian kualitas; gunakan sebagai awal penelusuran.
+            </p>
+          </div>
         </div>
-        <ul
-          style={{
-            margin: 0,
-            paddingLeft: 22,
-            display: "flex",
-            flexDirection: "column",
-            gap: 6,
-            maxWidth: 1000,
-          }}
-        >
-          {insights.map((text) => (
-            <li key={text} style={{ fontSize: 15 }}>
-              {text}
-            </li>
+        <div className="findings-grid">
+          {gaps.map((gap, index) => (
+            <article className="finding" key={gap.name}>
+              <span className="finding-num">{String(index + 1).padStart(2, "0")}</span>
+              <div className="finding-copy">
+                <b>{gap.name}</b>
+                <p>
+                  Porsi {fmt1(gap.share)}% dari total belanja, {gap.delta >= 0 ? "di atas" : "di bawah"}{" "}
+                  nilai tengah {fmt1(gap.median)}%. Peringkat {gap.rank} dari {comparisonCount}.
+                </p>
+              </div>
+              <span className={`chip ${statusInfo[gap.status].cls}`}>{signed(gap.delta)}</span>
+            </article>
           ))}
-        </ul>
-        <span style={{ fontSize: 12.5, color: "var(--ink2)" }}>
-          Selisih dihitung dalam poin persentase terhadap nilai tengah pembanding. Porsi yang
-          berbeda belum tentu menunjukkan masalah.
-        </span>
+        </div>
       </section>
 
       <section aria-label="Ringkasan status" className="grid-kpi">
@@ -586,17 +685,22 @@ export function AnalysisView({
           <div className="kpi-f">kelompok 25% terbawah dari {comparisonCount}</div>
         </article>
 
-        <article className="kpi kpi-metric dash">
+        <article className="kpi kpi-metric">
           <div className="kpi-metric-body">
-            <span className="ico kpi-metric-ico" style={{ background: "#8a4a06" }}>
-              <AlertCircle aria-hidden="true" />
+            <span className="ico kpi-metric-ico" style={{ background: "#c26a00" }}>
+              <Target aria-hidden="true" />
             </span>
             <div className="kpi-metric-copy">
-              <span className="kpi-metric-label">Perlu ditinjau</span>
-              <b className="kpi-metric-value is-text">Belum dihitung</b>
+              <span className="kpi-metric-label">Selisih terbesar</span>
+              <div className="kpi-metric-value-row">
+                <b className="kpi-metric-value">{fmt1(Math.abs(gaps[0]?.delta ?? 0))}</b>
+                <span className="kpi-metric-unit">poin</span>
+              </div>
             </div>
           </div>
-          <div className="kpi-f">Menunggu indikator kebutuhan BPS</div>
+          <div className="kpi-f">
+            {gaps[0]?.name ?? "Belum ada bidang"} dibandingkan nilai tengah
+          </div>
         </article>
       </section>
 
@@ -817,49 +921,114 @@ export function AnalysisView({
         <div className="pn" style={{ flex: "1 1 420px", minWidth: 0 }}>
           <div className="pn-h">
             <div>
-              <h2 className="pn-t">Kebutuhan Wilayah</h2>
-              <span className="pn-s">Indikator pendamping dari BPS</span>
+              <h2 className="pn-t">Mengapa analisis ini penting?</h2>
+              <span className="pn-s">Dari angka menuju pertanyaan yang lebih tajam</span>
             </div>
-            <span className="chip c-lo">Belum dimuat</span>
+            <span className="ico" style={{ background: "var(--brand)" }}>
+              <Lightbulb aria-hidden="true" />
+            </span>
           </div>
           <div className="pn-b" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {[
-                ["Jumlah penduduk", "untuk belanja per penduduk"],
-                ["Tingkat kemiskinan", "untuk bidang perlindungan sosial"],
-                ["Jumlah fasilitas", "sekolah dan fasilitas kesehatan"],
-                ["Luas wilayah", "untuk belanja per kilometer persegi"],
-              ].map(([label, note], index, all) => (
-                <div
-                  key={label}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 12,
-                    padding: "10px 0",
-                    borderBottom: index === all.length - 1 ? "0" : "1px solid var(--line)",
-                  }}
-                >
-                  <b>{label}</b>
-                  <span style={{ color: "var(--ink2)", fontSize: 13.5 }}>{note}</span>
+            {[
+              {
+                title: "Melihat prioritas secara relatif",
+                copy: "Porsi anggaran menjadi lebih bermakna saat dibandingkan dengan daerah yang memiliki jenis dan skala serupa.",
+              },
+              {
+                title: "Menemukan bidang yang menonjol",
+                copy: "Selisih terbesar membantu memilih bidang yang perlu diperiksa lebih dahulu, bukan menghakimi kualitas layanan.",
+              },
+              {
+                title: "Menyiapkan pertanyaan publik",
+                copy: "Temuan dapat diterjemahkan menjadi pertanyaan kepada pemerintah daerah melalui forum perencanaan atau layanan informasi.",
+              },
+            ].map((item) => (
+              <div className="why-row" key={item.title}>
+                <CheckCircle2 aria-hidden="true" />
+                <div>
+                  <b>{item.title}</b>
+                  <span>{item.copy}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="pn peer-panel">
+        <div className="pn-h">
+          <div>
+            <h2 className="pn-t">Perbandingan Langsung</h2>
+            <span className="pn-s">
+              Pilih satu kabupaten/kota untuk melihat selisih porsi bidang secara berdampingan.
+            </span>
+          </div>
+          {peerCode ? (
+            <span className={`chip ${peerSnapshot?.available ? "c-ok" : "c-wait"}`}>
+              {peerLoading
+                ? "Memuat pembanding…"
+                : peerSnapshot?.available
+                  ? peerSnapshot.region.nama
+                  : "Pembanding belum tersedia"}
+            </span>
+          ) : null}
+        </div>
+        <div className="pn-b">
+          {!peerCode ? (
+            <div className="peer-empty">
+              <Target aria-hidden="true" />
+              <div>
+                <b>Belum ada daerah pembanding yang dipilih.</b>
+                <span>
+                  Gunakan pilihan “Pilih daerah pembanding” di atas. Data baru dimuat setelah Anda
+                  memilih, sehingga tidak ada asumsi pembanding otomatis.
+                </span>
+              </div>
+            </div>
+          ) : peerLoading ? (
+            <div className="loading-strip" role="status" aria-live="polite">
+              <span className="spinner" aria-hidden="true" />
+              <span>Memuat data pembanding…</span>
+              <span className="skeleton loading-strip-bar" aria-hidden="true" />
+            </div>
+          ) : peerError ? (
+            <span className="chip c-lo">{peerError}</span>
+          ) : peerSnapshot?.available && peerComparison.length ? (
+            <div className="peer-grid">
+              <div className="peer-metric">
+                <span>{snapshot.region.nama}</span>
+                <b>{rupiahTriliun(snapshot.totalMiliar)}</b>
+              </div>
+              <div className="peer-metric">
+                <span>{peerSnapshot.region.nama}</span>
+                <b>{rupiahTriliun(peerSnapshot.totalMiliar)}</b>
+              </div>
+              <div className="peer-row peer-head">
+                <span>Bidang</span>
+                <span>{snapshot.region.nama}</span>
+                <span>{peerSnapshot.region.nama}</span>
+                <span>Selisih</span>
+              </div>
+              {peerComparison.map((row) => (
+                <div className="peer-row" key={row.name}>
+                  <b>{row.name}</b>
+                  <span>{fmt1(row.current)}%</span>
+                  <span>{fmt1(row.peer)}%</span>
+                  <span className={row.delta >= 0 ? "peer-up" : "peer-down"}>
+                    {signed(row.delta)}
+                  </span>
                 </div>
               ))}
             </div>
-            <div
-              style={{
-                background: "var(--sub)",
-                borderRadius: 12,
-                padding: "14px 16px",
-                fontSize: 13.5,
-                lineHeight: 1.55,
-              }}
-            >
-              <b>Rancangan aturan status &quot;Perlu Ditinjau&quot;.</b> Status ditetapkan apabila
-              porsi anggaran suatu bidang berada pada kelompok rendah dan indikator kebutuhan terkait
-              berada pada kelompok tinggi. Aturan ini baru diterapkan setelah data BPS dimuat.
-              Status bersifat indikatif, bukan penilaian akhir.
+          ) : (
+            <div className="peer-empty">
+              <Target aria-hidden="true" />
+              <div>
+                <b>Pembanding tidak memiliki data yang sebanding.</b>
+                <span>Pilih daerah atau tahun lain untuk melanjutkan perbandingan.</span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </section>
 
@@ -906,33 +1075,24 @@ export function AnalysisView({
         </div>
       </section>
 
-      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>Sumber Data</h2>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-            gap: 14,
-          }}
-        >
+      <section className="source-section">
+        <div>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>Sumber Data</h2>
+          <p style={{ margin: "4px 0 0", color: "var(--ink2)", fontSize: 13.5 }}>
+            Rujukan yang digunakan untuk menghitung porsi, peringkat, dan konteks pembanding.
+          </p>
+        </div>
+        <div className="source-grid">
           {sources.map((source) => (
-            <div className="src" key={source.name}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 8,
-                  alignItems: "center",
-                }}
-              >
-                <b>{source.name}</b>
-                <span className={`chip ${source.ok ? "c-ok" : "c-lo"}`}>{source.status}</span>
-              </div>
+            <article className="src source-card" key={source.name}>
+              <span className="source-org">{source.org}</span>
+              <b>{source.name}</b>
               <span>{source.detail}</span>
               <a href={source.url} target="_blank" rel="noreferrer">
                 {source.cta}
+                <ExternalLink size={14} aria-hidden="true" />
               </a>
-            </div>
+            </article>
           ))}
         </div>
       </section>

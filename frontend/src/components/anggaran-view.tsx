@@ -2,14 +2,28 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import type { BudgetBundle, Region } from "@backend/types";
 import { JENIS, JENIS_COLORS, fmt1, rupiahMiliar, slugify } from "@/lib/demo-data";
 
 type Mode = "persen" | "rupiah";
-type ChartMode = "bar" | "donut";
+type ChartMode = "bar" | "donut" | "line" | "area";
 
 type Slice = { name: string; value: number; share: number; color: string };
+type TrendPoint = { name: string; total: number; share: number };
 
 function SliceTip({
   active,
@@ -25,6 +39,24 @@ function SliceTip({
       <b>{slice.name}</b>
       <span>{rupiahMiliar(slice.value)}</span>
       <span>{fmt1(slice.share)}% dari total</span>
+    </div>
+  );
+}
+
+function TrendTip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: TrendPoint }>;
+}) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0].payload;
+  return (
+    <div className="tip">
+      <b>{point.name}</b>
+      <span>{rupiahMiliar(point.total)}</span>
+      <span>{fmt1(point.share)}% dari total belanja</span>
     </div>
   );
 }
@@ -143,6 +175,12 @@ export function AnggaranView({
     0,
   );
 
+  const trendPoints: TrendPoint[] = rows.map((row) => ({
+    name: row.name.length > 20 ? `${row.name.slice(0, 19)}…` : row.name,
+    total: row.total,
+    share: grand > 0 ? (row.total / grand) * 100 : 0,
+  }));
+
   async function load(nextRegion: string, nextYear: number) {
     const key = `${nextRegion}:${nextYear}`;
     const previousKode = bundle.region.kodeDjpk;
@@ -190,21 +228,21 @@ export function AnggaranView({
     <section aria-label="Filter" className="filter-bar">
       <div className="fld">
         <label className="lb" htmlFor="f-cari-daerah">
-          Cari daerah
+          Cari wilayah
         </label>
         <input
           className="sel"
           id="f-cari-daerah"
           value={regionQuery}
           onChange={(event) => setRegionQuery(event.target.value)}
-          placeholder="Nama kabupaten/kota"
+          placeholder="Ketik nama kabupaten/kota"
           style={{ minWidth: 220 }}
         />
       </div>
 
       <div className="fld">
         <label className="lb" htmlFor="f-daerah">
-          Daerah
+          Pilih kabupaten/kota
         </label>
         <select
           className="sel"
@@ -251,7 +289,7 @@ export function AnggaranView({
 
       <div className="fld">
         <label className="lb" htmlFor="f-bidang">
-          Bidang
+          Pilih bidang
         </label>
         <select
           className="sel"
@@ -298,6 +336,20 @@ export function AnggaranView({
           >
             Donat
           </button>
+          <button
+            type="button"
+            aria-pressed={chartMode === "line"}
+            onClick={() => setChartMode("line")}
+          >
+            Garis
+          </button>
+          <button
+            type="button"
+            aria-pressed={chartMode === "area"}
+            onClick={() => setChartMode("area")}
+          >
+            Area
+          </button>
         </div>
       </div>
     </section>
@@ -337,7 +389,7 @@ export function AnggaranView({
           <div>
             <h1>Telusuri Anggaran</h1>
             <p className="page-sub">
-              Data anggaran {frame?.region.nama ?? "daerah"} tahun {year} belum tersedia.
+              Data anggaran {frame?.region.nama ?? "wilayah ini"} tahun {year} belum tersedia.
             </p>
           </div>
         </section>
@@ -357,7 +409,7 @@ export function AnggaranView({
 
         <section className="callout">
           <div>
-            <b>Pilih daerah atau tahun lain.</b>
+            <b>Pilih kabupaten/kota atau tahun lain.</b>
             <span>
               Tahun tanpa berkas sumber tidak ditampilkan sebagai angka nol. Periksa halaman
               sumber data untuk melihat ketersediaan.
@@ -377,7 +429,7 @@ export function AnggaranView({
         <h1 className="page-title">Telusuri Anggaran</h1>
         <p className="page-sub">
           Setiap bidang dirinci menurut jenis belanja. {frame.region.nama} · APBD {frame.tahun}.
-          Pilih daerah dan tahun untuk memuat data lain.
+          Pilih kabupaten/kota dan tahun untuk memuat data lain.
         </p>
       </section>
 
@@ -395,7 +447,7 @@ export function AnggaranView({
 
       <div className="status-row">
         <span className={`chip ${bundle.source === "supabase" ? "c-ok" : "c-mid"}`}>
-          {bundle.source === "supabase" ? "Supabase" : "Data contoh"}
+          {bundle.source === "supabase" ? "Data resmi DJPK" : "Data contoh"}
         </span>
         {!loading && hasRealisasi ? <span className="chip c-ok">Realisasi tersedia</span> : null}
         {!loading && !hasRealisasi ? (
@@ -411,9 +463,11 @@ export function AnggaranView({
             <span className="pn-s">
               {chartMode === "donut"
                 ? "Gabungan jenis belanja pada bidang yang dipilih."
-                : mode === "persen"
-                  ? "Setiap batang mewakili 100% anggaran bidangnya."
-                  : "Panjang batang menunjukkan besar anggaran bidang dibandingkan bidang terbesar."}
+                : chartMode === "line" || chartMode === "area"
+                  ? "Sebaran total anggaran antarbidang, diurutkan dari yang terbesar."
+                  : mode === "persen"
+                    ? "Setiap batang mewakili 100% anggaran bidangnya."
+                    : "Panjang batang menunjukkan besar anggaran bidang dibandingkan bidang terbesar."}
             </span>
           </div>
           <div className="legend">
@@ -471,7 +525,7 @@ export function AnggaranView({
                 </div>
               ))}
             </div>
-          ) : (
+          ) : chartMode === "donut" ? (
             <div
               style={{
                 display: "flex",
@@ -544,7 +598,124 @@ export function AnggaranView({
                 ))}
               </div>
             </div>
+          ) : (
+            <div style={{ width: "100%", height: 360 }} role="img" aria-label="Sebaran anggaran antarbidang">
+              <ResponsiveContainer>
+                {chartMode === "line" ? (
+                  <LineChart data={trendPoints} margin={{ top: 10, right: 18, left: -8, bottom: 42 }}>
+                    <CartesianGrid vertical={false} stroke="#eaf1f8" />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fill: "#5c7590", fontSize: 10.5 }}
+                      axisLine={false}
+                      tickLine={false}
+                      angle={-26}
+                      textAnchor="end"
+                      interval={0}
+                      height={72}
+                    />
+                    <YAxis
+                      tick={{ fill: "#7c93a9", fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={58}
+                      unit=" M"
+                    />
+                    <Tooltip content={<TrendTip />} />
+                    <Line
+                      type="monotone"
+                      dataKey="total"
+                      name="Anggaran"
+                      stroke="#2F6BFF"
+                      strokeWidth={2.8}
+                      dot={{ r: 3.5, fill: "#2F6BFF" }}
+                      activeDot={{ r: 6 }}
+                      animationDuration={900}
+                    />
+                  </LineChart>
+                ) : (
+                  <AreaChart data={trendPoints} margin={{ top: 10, right: 18, left: -8, bottom: 42 }}>
+                    <defs>
+                      <linearGradient id="anggaranArea" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#2F6BFF" stopOpacity={0.32} />
+                        <stop offset="100%" stopColor="#2F6BFF" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid vertical={false} stroke="#eaf1f8" />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fill: "#5c7590", fontSize: 10.5 }}
+                      axisLine={false}
+                      tickLine={false}
+                      angle={-26}
+                      textAnchor="end"
+                      interval={0}
+                      height={72}
+                    />
+                    <YAxis
+                      tick={{ fill: "#7c93a9", fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={58}
+                      unit=" M"
+                    />
+                    <Tooltip content={<TrendTip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="total"
+                      name="Anggaran"
+                      stroke="#2F6BFF"
+                      strokeWidth={2.8}
+                      fill="url(#anggaranArea)"
+                      animationDuration={900}
+                    />
+                  </AreaChart>
+                )}
+              </ResponsiveContainer>
+            </div>
           )}
+        </div>
+      </section>
+
+      <section className="reading-panel">
+        <div className="reading-intro">
+          <span className="eyebrow">Cara membaca</span>
+          <h2>Apa arti angka ini, dan langkah apa yang bisa diambil?</h2>
+          <p>
+            Halaman ini menunjukkan pagu, bukan realisasi. Tingginya porsi suatu bidang belum
+            otomatis berarti alokasinya tepat; bandingkan dengan kebutuhan dan capaian layanan.
+          </p>
+        </div>
+        <div className="reading-grid">
+          <article>
+            <b>1. Pahami angka</b>
+            <span>
+              Nominal adalah pagu APBD dalam miliar rupiah. Porsi menunjukkan bagian bidang terhadap
+              total belanja daerah pada tahun yang dipilih.
+            </span>
+          </article>
+          <article>
+            <b>2. Bandingkan konteks</b>
+            <span>
+              Posisi suatu bidang lebih bermakna jika dibandingkan dengan daerah sejenis, tren
+              tahunan, dan indikator kebutuhan wilayah.
+            </span>
+          </article>
+          <article>
+            <b>3. Tindak lanjuti</b>
+            <span>
+              Buka analisis untuk melihat peringkat dan pertanyaan tinjauan, lalu gunakan simulasi
+              untuk menguji pembagian alokasi alternatif.
+            </span>
+          </article>
+        </div>
+        <div className="reading-actions">
+          <Link className="btn btn-s" href={`/analisis?kode=${encodeURIComponent(regionCode)}&tahun=${year}`}>
+            Lihat analisis kebutuhan
+          </Link>
+          <Link className="btn btn-p" href="/simulasi">
+            Coba simulasi alokasi
+          </Link>
         </div>
       </section>
 

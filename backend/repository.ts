@@ -286,17 +286,18 @@ export async function getBudgetBundle({
     return fallbackBundle(kodeDjpk, tahun ?? 2023);
   }
 
-  const targetYear = tahun ?? (await getLatestPaguYear());
-  const [region, years, query] = await Promise.all([
+  const [region, years] = await Promise.all([
     getRegion(kodeDjpk),
     getRegionYears(kodeDjpk),
-    supabaseServer
-      .from("budget_vs_actual")
-      .select("kode_djpk,tahun,fungsi_kode,fungsi,jenis_kode,jenis,pagu,realisasi")
-      .eq("kode_djpk", kodeDjpk)
-      .eq("tahun", targetYear)
-      .limit(1000),
   ]);
+  const targetYear =
+    tahun ?? years.find((row) => row.pagu)?.tahun ?? (await getLatestPaguYear());
+  const query = await supabaseServer
+    .from("budget_vs_actual")
+    .select("kode_djpk,tahun,fungsi_kode,fungsi,jenis_kode,jenis,pagu,realisasi")
+    .eq("kode_djpk", kodeDjpk)
+    .eq("tahun", targetYear)
+    .limit(1000);
 
   const safeYears = withSelectedYear(years, targetYear);
 
@@ -418,11 +419,13 @@ export async function getSourceData(): Promise<SourceMetadata[]> {
 }
 
 const datasetNotes: Record<number, string | undefined> = {
+  2020: "Pagu dan realisasi tersedia",
+  2021: "Pagu dan realisasi tersedia",
   2022: "Realisasi sementara per 8 Jan 2024",
-  2023: "Pagu dan realisasi tersedia di paket CSV; belum diimpor ke Supabase",
-  2024: "Pagu dan realisasi parsial tersedia di paket CSV; belum diimpor ke Supabase",
+  2023: "Pagu dan realisasi tersedia",
+  2024: "Realisasi parsial per 31 Okt 2025",
   2025: "Pagu per 18 Sep 2025; realisasi belum tersedia",
-  2026: "Pagu tersedia di paket CSV; belum diimpor ke Supabase",
+  2026: "Pagu per 6 Agu 2026; realisasi belum tersedia",
 };
 
 export async function getDatasetSummary(): Promise<DatasetSummary> {

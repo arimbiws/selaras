@@ -8,6 +8,6 @@ export const getCachedRegions = unstable_cache(getRegions, ["analysis-regions"],
 export const getCachedAnalysis = unstable_cache(
   async (kodeDjpk: string, tahun: number) =>
     getAnalysisData({ kodeDjpk, tahun: tahun || undefined }),
-  ["analysis-snapshot-v2"],
+  ["analysis-snapshot-v3"],
   { revalidate: 300 },
 );

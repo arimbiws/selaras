@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { AiAssistant } from "@/components/ai-assistant";
 import { AppSidebar } from "@/components/app-sidebar";
 import { WorkspaceSearch } from "@/components/workspace-search";
 
@@ -24,6 +25,7 @@ export function PageShell({
           {children}
         </div>
       </div>
+      <AiAssistant />
     </div>
   );
 }

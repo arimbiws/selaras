@@ -83,6 +83,7 @@ export function Footer() {
       <div className="foot-bottom">
         <span>© 2026 SELARAS. Hak cipta dilindungi.</span>
         <span>Data anggaran terbuka untuk seluruh Indonesia.</span>
+        <span className="foot-credit">Pengembang oleh Tim Daun Leaf untuk Lomba MIA 2026.</span>
       </div>
     </footer>
   );

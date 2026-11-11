@@ -45,7 +45,7 @@ export const COVERAGE = {
   kecamatan: 7285,
   desa: 83762,
   kodeDaerah: 572,
-  barisBelanja: 134120,
+  barisBelanja: 209647,
 };
 
 export const DEFAULT_REGION = {
@@ -71,7 +71,7 @@ export const NATIONAL_REALISASI: Record<number, number> = {
 
 export const PARTIAL_REALISASI = new Set([2024]);
 
-export const DATA_YEARS = [2022, 2023, 2024, 2025, 2026];
+export const DATA_YEARS = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
 
 export const DATA_AVAILABILITY: Array<{
   tahun: number;
@@ -79,6 +79,8 @@ export const DATA_AVAILABILITY: Array<{
   realisasi: boolean;
   catatan?: string;
 }> = [
+  { tahun: 2020, pagu: true, realisasi: true },
+  { tahun: 2021, pagu: true, realisasi: true },
   { tahun: 2022, pagu: true, realisasi: true, catatan: "Realisasi sementara per 8 Jan 2024" },
   { tahun: 2023, pagu: true, realisasi: true },
   { tahun: 2024, pagu: true, realisasi: true, catatan: "Realisasi parsial per 31 Okt 2025" },
