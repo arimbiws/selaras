@@ -3491,13 +3491,6 @@ span.ico {
   font-weight: 700;
 }
 
-.chart-tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
 .dash-start {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
@@ -3629,52 +3622,6 @@ span.ico {
 .quick-card.amber .quick-ico {
   background: #fff3d9;
   color: #b87500;
-}
-
-.kpi-v-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.kpi-mark {
-  width: 24px;
-  height: 24px;
-  flex: 0 0 24px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-}
-
-.kpi-mark svg {
-  width: 13px;
-  height: 13px;
-}
-
-.kpi-mark.up {
-  background: #e2f0fb;
-  color: #0a5273;
-}
-
-.kpi-mark.down {
-  background: #e8eefe;
-  color: #2f4fb0;
-}
-
-.kpi-mark.flat {
-  background: #edf1f6;
-  color: #52667c;
-}
-
-.kpi-mark.warning {
-  background: #fdefdd;
-  color: #8a4a06;
-}
-
-.kpi-mark.safe {
-  background: #e3f5ec;
-  color: #116a43;
 }
 
 .findings {

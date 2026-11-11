@@ -18,7 +18,6 @@ export default async function DashboardPage() {
       <DashboardData
         bundle={bundle}
         national={national.points}
-        nationalSource={national.source}
         analysis={analysis}
       />
     </PageShell>
